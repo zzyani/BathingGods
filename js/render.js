@@ -314,7 +314,48 @@ const Render = (() => {
       const sw = Math.sin(t * 2 + k) * 1.5;
       ctx.fillStyle = k % 2 ? '#7da453' : '#5f8a3c';
       ctx.beginPath(); ctx.moveTo(px - 3, py); ctx.quadraticCurveTo(px - 4 + sw, py - 8, px + sw, py - 13); ctx.quadraticCurveTo(px + 3 + sw, py - 7, px + 3, py); ctx.fill();
+      // 꽃밭이면 꽃송이
+      if (o.flower && k % 2 === 0) {
+        for (let q = 0; q < 5; q++) ell(ctx, px + sw + Math.cos(q * 1.26) * 2.6, py - 14 + Math.sin(q * 1.26) * 1.6, 2, 2.6, o.flower, q * 1.26);
+        circle(ctx, px + sw, py - 14, 1.3, '#7a4a12');
+      }
     }
+  }
+  // 소나무 (솔잎)
+  function pine(ctx, o, t) {
+    const cx = sx(o.x + 0.5, o.y + 0.5), cy = sy(o.x + 0.5, o.y + 0.5);
+    ell(ctx, cx, cy, 22, 9, 'rgba(0,0,0,0.25)');
+    ctx.fillStyle = '#5a3a26'; ctx.fillRect(cx - 4, cy - 30, 8, 30);
+    const sw = Math.sin(t * 1.1) * 1.2;
+    const layers = [[-30, 24, '#24563a'], [-50, 20, '#2b6343'], [-68, 15, '#33704c'], [-82, 10, '#3c7d55']];
+    for (const [y, r, c] of layers) tri(ctx, cx - r + sw, cy + y + 10, cx + sw * 1.5, cy + y - 16, cx + r + sw, cy + y + 10, c);
+    for (let k = 0; k < 5; k++) circle(ctx, cx - 14 + hash(k, 4) * 28 + sw, cy - 70 + hash(4, k) * 44, 1.6, 'rgba(200,230,190,0.45)');
+  }
+  // 대추 항아리
+  function jar(ctx, o) {
+    const n = Math.max(1, Math.round(o.w * o.h * 1.5));
+    for (let k = 0; k < n; k++) {
+      const fx = o.x + (o.w * (k + 0.5)) / n, fy = o.y + o.h * 0.5 + (k % 2 ? 0.12 : -0.12);
+      const cx = sx(fx, fy), cy = sy(fx, fy);
+      ell(ctx, cx, cy, 11, 5, 'rgba(0,0,0,0.25)');
+      ell(ctx, cx, cy - 13, 11, 14, '#8a5a3a');
+      ell(ctx, cx - 3, cy - 16, 3, 7, 'rgba(255,220,180,0.18)');
+      rrect(ctx, cx - 7, cy - 30, 14, 5, 2, '#6e432a');
+      ell(ctx, cx, cy - 30, 7, 2.6, '#4a2c1a');
+      for (let q = 0; q < 4; q++) circle(ctx, cx - 4 + q * 2.6, cy - 31 + (q % 2) * 1.2, 1.7, o.herbs ? HERBS[o.herbs[0]].color : '#9b2d2d');
+    }
+  }
+  // 생강 바구니
+  function basket(ctx, o) {
+    const cx = sx(o.x + 0.5, o.y + 0.5), cy = sy(o.x + 0.5, o.y + 0.5);
+    ell(ctx, cx, cy, 16, 7, 'rgba(0,0,0,0.25)');
+    ctx.fillStyle = '#b08a52';
+    ctx.beginPath(); ctx.moveTo(cx - 17, cy - 16); ctx.lineTo(cx + 17, cy - 16); ctx.lineTo(cx + 12, cy); ctx.lineTo(cx - 12, cy); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(90,60,30,0.6)';
+    for (const yy of [-12, -7, -3]) { ctx.beginPath(); ctx.moveTo(cx - 15, cy + yy); ctx.lineTo(cx + 15, cy + yy); ctx.stroke(); }
+    ell(ctx, cx, cy - 16, 17, 5, '#8e6a3a');
+    const col = o.herbs ? HERBS[o.herbs[0]].color : '#d98c3a';
+    for (let k = 0; k < 5; k++) ell(ctx, cx - 9 + k * 4.5, cy - 18 - (k % 2) * 2, 4, 2.6, col, 0.4 * (k % 2 ? 1 : -1));
   }
   function jarsOnFace(ctx, P1, P2, levels, colors, seed) {
     let n = 0;
@@ -379,6 +420,9 @@ const Render = (() => {
       case 'tub': tub(ctx, o, t); break;
       case 'tree': tree(ctx, o, t); break;
       case 'patch': patch(ctx, o, t); break;
+      case 'pine': pine(ctx, o, t); break;
+      case 'jar': jar(ctx, o); break;
+      case 'basket': basket(ctx, o); break;
       case 'shelf': shelf(ctx, o); break;
       case 'crate': crate(ctx, o); break;
       case 'furnace': furnace(ctx, o, t); break;
@@ -535,6 +579,84 @@ const Render = (() => {
         ctx.strokeStyle = '#2d5a2a'; ctx.beginPath(); ctx.arc(1, -14, 6, 0.3, Math.PI - 0.3); ctx.stroke();
         for (let k = 0; k < 5; k++) ell(ctx, 1 + Math.cos(k * 1.26) * 3.4, -27 + Math.sin(k * 1.26) * 1.4, 2.6, 4.2, '#ee9bbd', k * 1.26);
         circle(ctx, 1, -27.5, 1.6, '#f6d36a');
+        break;
+      }
+      case 'butterfly': {
+        // 날개 (펄럭임)
+        const flap = 0.7 + 0.3 * Math.cos(t * 10);
+        for (const side of [-1, 1]) {
+          ctx.save(); ctx.translate(0, -22); ctx.scale(side * flap, 1);
+          ell(ctx, 9, -6, 10, 8, '#f0a92e', -0.5);
+          ell(ctx, 7, 5, 7, 6, '#e0782a', 0.5);
+          circle(ctx, 12, -9, 2.2, '#3a2414'); circle(ctx, 8, 6, 1.6, '#3a2414');
+          ctx.strokeStyle = 'rgba(58,36,20,0.7)'; ctx.lineWidth = 1.2;
+          ctx.beginPath(); ctx.ellipse(9, -6, 10, 8, -0.5, 0, Math.PI * 2); ctx.stroke(); ctx.lineWidth = 1;
+          ctx.restore();
+        }
+        ell(ctx, 0, -14, 4, 11, '#3a2a20');
+        circle(ctx, 0, -28, 6, '#f6e3c8');
+        ctx.fillStyle = '#3a2a20'; ctx.beginPath(); ctx.ellipse(0, -30, 6.4, 4.5, 0, Math.PI, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#3a2a20'; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(-2, -33); ctx.quadraticCurveTo(-5, -40, -8, -41); ctx.moveTo(2, -33); ctx.quadraticCurveTo(5, -40, 8, -41); ctx.stroke();
+        ctx.lineWidth = 1;
+        circle(ctx, -8, -41, 1.5, '#f0a92e'); circle(ctx, 8, -41, 1.5, '#f0a92e');
+        eyes(ctx, 1.5, -27, 2.4, 1.2);
+        ell(ctx, 4.5, -25, 1.4, 0.8, 'rgba(240,140,120,0.6)');
+        break;
+      }
+      case 'crane': {
+        ctx.strokeStyle = '#3a3a3a'; ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.moveTo(-3, 0); ctx.lineTo(-2, -11); ctx.moveTo(3, 0); ctx.lineTo(2, -11); ctx.stroke();
+        ctx.lineWidth = 1;
+        ell(ctx, -12, -15, 6, 3, '#2a2a2a', -0.4);
+        ctx.strokeStyle = 'rgba(0,0,0,0.18)';
+        ell(ctx, -2, -17, 12, 8, '#f4f2ec'); ctx.stroke();
+        ctx.strokeStyle = '#c9c6bd'; ctx.beginPath(); ctx.moveTo(-10, -18); ctx.quadraticCurveTo(-2, -12, 6, -17); ctx.stroke();
+        ctx.strokeStyle = '#f4f2ec'; ctx.lineWidth = 4.5; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(6, -20); ctx.quadraticCurveTo(10, -28, 7, -35); ctx.stroke();
+        ctx.lineWidth = 1; ctx.lineCap = 'butt';
+        ctx.fillStyle = '#2a2a2a'; ctx.fillRect(6.5, -31, 2.5, 5);
+        circle(ctx, 8, -37, 4.6, '#f4f2ec');
+        circle(ctx, 7.5, -41, 2.2, '#d8352b');
+        tri(ctx, 11, -38.5, 19, -36, 11, -35, '#d7b24a');
+        circle(ctx, 9.6, -37.5, 1, '#111');
+        break;
+      }
+      case 'dokkaebi': {
+        // 방망이
+        ctx.strokeStyle = '#7a4a2a'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(9, -9); ctx.lineTo(16, -24); ctx.stroke();
+        ctx.lineWidth = 1; ctx.lineCap = 'butt';
+        ell(ctx, 17, -27, 5, 6, '#8a5530', 0.4);
+        for (const [dx, dy] of [[-2, -3], [2, -1], [0, 3]]) circle(ctx, 17 + dx, -27 + dy, 1, '#e8d7a8');
+        ell(ctx, 0, -13, 12, 12, '#4f7fc4');
+        rrect(ctx, -11, -11, 22, 7, 2, '#e8a83a');
+        ctx.strokeStyle = '#2a1a10'; ctx.lineWidth = 1.3;
+        for (const xx of [-7, -2, 3, 8]) { ctx.beginPath(); ctx.moveTo(xx, -11); ctx.lineTo(xx + 1.5, -4); ctx.stroke(); }
+        ctx.lineWidth = 1;
+        ell(ctx, 1, -27, 10, 9, '#4f7fc4');
+        tri(ctx, -1, -34, 1.5, -45, 4, -34, '#f0e6c8');
+        ctx.fillStyle = '#2b3a6a'; ctx.beginPath(); ctx.ellipse(1, -33, 10, 4, 0, Math.PI, Math.PI * 2); ctx.fill();
+        circle(ctx, -2, -28, 3, '#fff'); circle(ctx, 5, -28, 3, '#fff');
+        circle(ctx, -1.4, -28, 1.5, '#111'); circle(ctx, 5.6, -28, 1.5, '#111');
+        ctx.fillStyle = '#7a1d1d'; ctx.beginPath(); ctx.arc(2, -23, 4, 0, Math.PI); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.fillRect(-0.5, -23, 1.5, 1.8); ctx.fillRect(3, -23, 1.5, 1.8);
+        break;
+      }
+      case 'snow': {
+        ctx.strokeStyle = 'rgba(80,110,150,0.35)';
+        ell(ctx, 0, -10, 12, 10, '#f4f8fc'); ctx.stroke();
+        ell(ctx, 0, -25, 9, 8, '#f4f8fc'); ctx.stroke();
+        rrect(ctx, -9, -19, 18, 4, 2, '#4a7fc0');
+        rrect(ctx, -9, -18, 4, 9, 2, '#4a7fc0');
+        for (let k = 0; k < 4; k++) tri(ctx, -6 + k * 4, -31, -4 + k * 4, -37 - (k % 2) * 3, -2 + k * 4, -31, '#bfe3f5');
+        eyes(ctx, 2, -25, 3, 1.4, '#2a3a5a');
+        ell(ctx, 6.5, -22.5, 1.8, 1, 'rgba(120,170,230,0.6)');
+        ctx.strokeStyle = '#2a3a5a'; ctx.beginPath(); ctx.arc(2, -22, 1.8, 0.2, Math.PI - 0.2); ctx.stroke();
+        for (let k = 0; k < 4; k++) {
+          const a = t * 1.5 + k * 1.57;
+          circle(ctx, Math.cos(a) * 15, -18 + Math.sin(a * 1.3) * 12, 1.3, 'rgba(255,255,255,0.85)');
+        }
         break;
       }
     }

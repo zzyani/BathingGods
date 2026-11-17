@@ -125,8 +125,12 @@ const OBJECT_DEFS = [
   { id: 'ssuk', scene: 'garden', kind: 'patch', x: 8, y: 2, w: 2, h: 1, label: '쑥밭', herbs: ['ssuk'], pickH: 18 },
   { id: 'pond', scene: 'garden', kind: 'pond', x: 2, y: 2, w: 3, h: 2, label: '연못', herbs: ['changpo', 'yeon'], block: false, pickH: 14 },
   { id: 'shelfA', scene: 'storage', kind: 'shelf', x: 1, y: 1, w: 1, h: 2, label: '약재 선반', herbs: ['gamcho', 'gyepi'], pickH: 64 },
+  { id: 'gukhwa', scene: 'garden', kind: 'patch', x: 8, y: 6, w: 2, h: 1, label: '국화밭', herbs: ['gukhwa'], pickH: 18, flower: '#f0a92e' },
+  { id: 'pine', scene: 'garden', kind: 'pine', x: 10, y: 4, w: 1, h: 1, label: '소나무', herbs: ['solip'], pickH: 90 },
+  { id: 'jars', scene: 'storage', kind: 'jar', x: 7, y: 1, w: 2, h: 1, label: '대추 항아리', herbs: ['daechu'], pickH: 36 },
+  { id: 'ginger', scene: 'storage', kind: 'basket', x: 10, y: 4, w: 1, h: 1, label: '생강 바구니', herbs: ['saenggang'], pickH: 24 },
   { id: 'shelfB', scene: 'storage', kind: 'shelf', x: 3, y: 1, w: 2, h: 1, label: '약재 선반', herbs: ['bakha'], pickH: 64 },
-  { id: 'sulfur', kind: 'crate', x: 11, y: 10, w: 1, h: 1, label: '유황 소금 상자', herbs: ['yuhwang'], pickH: 26 },
+  { id: 'sulfur', kind: 'crate', x: 8, y: 11, w: 1, h: 1, label: '유황 소금 상자', herbs: ['yuhwang'], pickH: 26 },
   { id: 'furnace', kind: 'furnace', x: 9, y: 13, w: 2, h: 2, label: '보일러 가마', pickH: 90 },
   { id: 'counter', kind: 'counter', x: 16, y: 10, w: 3, h: 1, label: '접수대', pickH: 34,
     flavor: '오늘의 손님 명부. 손님은 접수대 앞 방석에서 기다린다.' },
@@ -151,8 +155,8 @@ const BOILER = {
  */
 const TUB_NEIGHBORS = { tub1: ['tub2'], tub2: ['tub1', 'tub3'], tub3: ['tub2', 'tub4'], tub4: ['tub3'] }; // 탕은 한 줄로 배치
 const GUEST_RELATIONS = {
-  dislike: [['fox', 'river'], ['lantern', 'river'], ['turtle', 'rabbit'], ['fox', 'frog']],
-  like: [['moss', 'turtle'], ['river', 'frog'], ['mushroom', 'moss'], ['rabbit', 'lantern']],
+  dislike: [['fox', 'river'], ['lantern', 'river'], ['turtle', 'rabbit'], ['fox', 'frog'], ['snow', 'fox'], ['snow', 'lantern'], ['dokkaebi', 'crane']],
+  like: [['moss', 'turtle'], ['river', 'frog'], ['mushroom', 'moss'], ['rabbit', 'lantern'], ['crane', 'turtle'], ['butterfly', 'frog'], ['dokkaebi', 'lantern']],
 };
 const COMPANY_TIP = 10;
 
@@ -166,16 +170,21 @@ const HERBS = {
   gyepi:   { name: '계피',     short: '계', color: '#a5532e', where: '약재 창고(복도 왼쪽 끝 아래쪽 문) 선반' },
   bakha:   { name: '박하',     short: '박', color: '#4fbfa8', where: '약재 창고(복도 왼쪽 끝 아래쪽 문) 선반' },
   yuhwang: { name: '유황 소금', short: '황', color: '#cfc23c', where: '보일러실 상자' },
+  gukhwa:  { name: '국화',     short: '국', color: '#f0a92e', where: '정원(복도 왼쪽 끝 위쪽 문) 국화밭' },
+  solip:   { name: '솔잎',     short: '솔', color: '#2f6b45', where: '정원(복도 왼쪽 끝 위쪽 문) 소나무' },
+  daechu:  { name: '대추',     short: '대', color: '#9b2d2d', where: '약재 창고(복도 왼쪽 끝 아래쪽 문) 항아리' },
+  saenggang: { name: '생강',   short: '생', color: '#d98c3a', where: '약재 창고(복도 왼쪽 끝 아래쪽 문) 바구니' },
 };
 
 /* ---------- 손님(신령) ----------
  * {temp}, {herb}, {herb_eul}(을/를 자동) 치환
+ * herb: 주로 찾는 약재 · alt: 가끔 대신 찾는 약재 (주문마다 무작위)
  * patience: 대기 시간(초, 40~90) · bath: 목욕 시간(초, 20~50) — 기획서 v2.0 기준
  * 대기 시간은 손님을 안내(따라오기)하는 동안 멈추고, 영업 마감 후에는 다시 줄어든다.
  */
 const GUEST_TYPES = {
   moss: {
-    name: '이끼 노인', herb: 'ssuk', temp: [40, 42], patience: 80, bath: 40,
+    name: '이끼 노인', herb: 'ssuk', alt: ['solip'], temp: [40, 42], patience: 80, bath: 40,
     line: '허허, 비에 젖은 이끼가 영 무겁구먼. {temp}도쯤 되는 물에 {herb_eul} 띄워 주겠나?',
   },
   lantern: {
@@ -187,11 +196,11 @@ const GUEST_TYPES = {
     line: '흘러온 길이 너무 길었어요. {temp}도 정도로 미지근하게, {herb_eul} 넣어 주세요.',
   },
   mushroom: {
-    name: '버섯 할멈', herb: 'gamcho', temp: [41, 43], patience: 75, bath: 45,
+    name: '버섯 할멈', herb: 'gamcho', alt: ['daechu'], temp: [41, 43], patience: 75, bath: 45,
     line: '얘야, 허리가 쑤시는구나. {temp}도 물에 {herb_eul} 달여 넣어 다오.',
   },
   fox: {
-    name: '여우불 아가씨', herb: 'gyepi', temp: [44, 46], patience: 60, bath: 30,
+    name: '여우불 아가씨', herb: 'gyepi', alt: ['saenggang'], temp: [44, 46], patience: 60, bath: 30,
     line: '후후, 차가운 물은 질색이야. {temp}도로 뜨겁게, {herb} 향도 듬뿍.',
   },
   turtle: {
@@ -199,12 +208,28 @@ const GUEST_TYPES = {
     line: '…천 년 묵은 등껍질이 굳었다. {temp}도… {herb_eul} 부탁한다.',
   },
   rabbit: {
-    name: '달토끼', herb: 'bakha', temp: [38, 40], patience: 40, bath: 20,
+    name: '달토끼', herb: 'bakha', alt: ['gukhwa'], temp: [38, 40], patience: 40, bath: 20,
     line: '방아를 너무 찧었더니 땀이 나요! {temp}도로 시원하게, {herb_eul} 넣어 주세요!',
   },
   frog: {
     name: '연잎 개구리 신', herb: 'yeon', temp: [39, 41], patience: 65, bath: 35,
     line: '개굴. 연못이 그리워서 왔다네. {temp}도 물에 {herb_eul} 띄워 주게, 개굴.',
+  },
+  butterfly: {
+    name: '호랑나비 아씨', herb: 'gukhwa', alt: ['yuja'], temp: [39, 41], patience: 70, bath: 30,
+    line: '꽃밭을 너무 오래 날았더니 날개가 무거워요. {temp}도쯤 되는 물에 {herb_eul} 띄워 주실래요?',
+  },
+  crane: {
+    name: '학 선인', herb: 'solip', alt: ['ssuk'], temp: [42, 44], patience: 85, bath: 45,
+    line: '흠, 천 리를 날아왔네. {temp}도의 물에 {herb} 향을 더해 주게. 솔바람이 그립구먼.',
+  },
+  dokkaebi: {
+    name: '방망이 도깨비', herb: 'daechu', alt: ['gyepi'], temp: [44, 46], patience: 55, bath: 25,
+    line: '뚝딱! 오늘 씨름에서 이겼으니 뜨끈하게 몸 좀 지져야지. {temp}도에 {herb_eul} 팍팍!',
+  },
+  snow: {
+    name: '눈꽃 정령', herb: 'saenggang', alt: ['yuhwang'], temp: [46, 48], patience: 75, bath: 35,
+    line: '추, 추워요… 조금 녹아도 괜찮으니까 {temp}도로 아주 뜨겁게, {herb_eul} 넣어 주세요.',
   },
 };
 
@@ -225,24 +250,24 @@ const DAYS = [
   },
   {
     title: '늘어나는 손님', length: 200, guests: 4, twoHerb: 0,
-    pool: ['moss', 'river', 'lantern', 'mushroom', 'fox'], forced: ['mushroom', 'fox'],
+    pool: ['moss', 'river', 'lantern', 'mushroom', 'fox', 'crane'], forced: ['mushroom', 'fox'],
     intro: '소문이 돌았는지 손님이 늘었다. 오늘은 약재 창고의 약재를 찾는 손님도 온다고 한다.',
   },
   {
     title: '검은 그림자', length: 210, guests: 5, twoHerb: 0,
-    pool: ['moss', 'river', 'lantern', 'mushroom', 'fox', 'turtle', 'rabbit'], forced: ['turtle', 'rabbit'],
+    pool: ['moss', 'river', 'lantern', 'mushroom', 'fox', 'turtle', 'rabbit', 'crane', 'butterfly'], forced: ['turtle', 'rabbit', 'butterfly'],
     clues: ['mask', 'gold'], ghost: true,
-    intro: '요즘 밤마다 검은 그림자를 봤다는 일꾼들이 있다. 연못가와 창고 구석을 유심히 살펴보자. 보일러실의 유황 소금을 찾는 손님도 온다.',
+    intro: '요즘 밤마다 검은 그림자를 봤다는 일꾼들이 있다. 연못가와 창고 구석을 유심히 살펴보자. 보일러실의 유황 소금을 찾는 손님과, 정원의 국화를 좋아하는 나비 손님도 온다.',
   },
   {
     title: '말 없는 소문', length: 220, guests: 6, twoHerb: 0.3,
-    pool: ['moss', 'river', 'lantern', 'mushroom', 'fox', 'turtle', 'rabbit', 'frog'], forced: ['frog'],
+    pool: ['moss', 'river', 'lantern', 'mushroom', 'fox', 'turtle', 'rabbit', 'frog', 'butterfly', 'crane', 'dokkaebi', 'snow'], forced: ['frog', 'dokkaebi', 'snow'],
     clues: ['note', 'shadow'],
-    intro: '그림자는 아무 말도 하지 않는다고 한다. 보일러실과 복도에 무언가 남아 있을지도. 오늘부터는 약재를 두 가지 찾는 까다로운 손님도 온다.',
+    intro: '그림자는 아무 말도 하지 않는다고 한다. 보일러실과 복도에 무언가 남아 있을지도. 오늘부터는 약재를 두 가지 찾는 까다로운 손님, 추위를 타는 눈꽃 정령과 시끌벅적한 도깨비도 온다.',
   },
   {
     title: '얼굴 없는 손님', length: 220, guests: 5, twoHerb: 0.35,
-    pool: ['moss', 'river', 'lantern', 'mushroom', 'fox', 'turtle', 'rabbit', 'frog'], forced: [],
+    pool: ['moss', 'river', 'lantern', 'mushroom', 'fox', 'turtle', 'rabbit', 'frog', 'butterfly', 'crane', 'dokkaebi', 'snow'], forced: [],
     kaonashiAt: 0.3,
     intro: '마지막 날 밤. 안개가 짙다. 오늘, 그 손님이 찾아올 것만 같다.',
   },
@@ -316,7 +341,7 @@ const SPECIAL_ENDING = [
 
 /* ---------- 에셋 교체용 매니페스트 ----------
  * AI 제작 이미지를 쓰려면 여기에 등록하세요. 없으면 도형으로 그립니다.
- * key: 'chihiro' | 'kaonashi' | 손님 타입(moss, fox …) | 오브젝트 kind(tree, shelf, furnace, counter, crate, patch)
+ * key: 'chihiro' | 'kaonashi' | 손님 타입(moss, fox …) | 오브젝트 kind(tree, pine, patch, shelf, jar, basket, crate, furnace, counter)
  * ax, ay: 이미지 안의 기준점(0~1). 캐릭터는 발밑, 오브젝트는 바닥 중앙.
  * 예) chihiro: { src: 'assets/chihiro.png', w: 48, h: 64, ax: 0.5, ay: 0.95 },
  */

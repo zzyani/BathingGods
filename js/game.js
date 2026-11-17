@@ -586,8 +586,8 @@ function spawnGuest(type) {
   const qi = freeQueueIndex();
   if (qi < 0) return false;
   const temp = Util.randInt(T.temp[0], T.temp[1]);
-  const herbs = [T.herb];
-  if (cfg.twoHerb && Math.random() < cfg.twoHerb) herbs.push(Util.pick(Object.keys(HERBS).filter(h => h !== T.herb)));
+  const herbs = [T.alt && Math.random() < 0.4 ? Util.pick(T.alt) : T.herb];
+  if (cfg.twoHerb && Math.random() < cfg.twoHerb) herbs.push(Util.pick(Object.keys(HERBS).filter(h => h !== herbs[0])));
   const pm = T.patience * (hasUp('incense') ? 1.25 : 1);
   const g = {
     id: ++w.gid, type, x: DOOR.x + 0.5, y: DOOR.y + 0.5, face: -1, alpha: 0, moving: false,
