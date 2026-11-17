@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>신들의 손님맞이</title>
+  <meta name="description" content="신들이 방문하는 목욕탕에서 5일 동안 손님을 맞이하는 2D 경영 + 탐험 시뮬레이션 (비공식 팬게임)">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app">
+    <canvas id="game"></canvas>
+
+    <div id="hud" class="hidden">
+      <div class="hud-panel" id="hud-status">
+        <div class="hud-row">
+          <span class="hud-day" id="hud-day">1일차 / 5</span>
+          <span class="hud-clock" id="hud-clock">18:00</span>
+        </div>
+        <div class="time-bar"><div id="hud-timefill"></div></div>
+        <div class="hud-row small">
+          <span id="hud-rep">평판 —</span>
+          <span id="hud-coins">0냥</span>
+          <span id="hud-clues" class="hidden"></span>
+        </div>
+      </div>
+      <div id="orders"></div>
+      <div id="hint" class="hidden"></div>
+      <div id="inventory"></div>
+      <div id="hud-buttons">
+        <button id="btn-journal" title="단서 수첩 (J)">📜<span>단서 수첩</span></button>
+        <button id="btn-sound" title="소리 켜기/끄기 (M)">🔊</button>
+        <button id="btn-pause" title="일시정지 (Esc)">⏸</button>
+      </div>
+      <div id="toasts"></div>
+    </div>
+
+    <div id="tooltip" class="hidden"></div>
+    <div id="screen" class="hidden"></div>
+    <div id="modal" class="modal hidden"></div>
+  </div>
+
+  <script src="js/data.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
