@@ -9,7 +9,7 @@ const TILE_H = 32;
 
 const OPEN_HOUR = 18;   // 영업 시작 18:00
 const CLOSE_HOUR = 26;  // 영업 종료 02:00
-const BATH_TIME = 10;   // 손님 1명 목욕 시간(초)
+const BATH_TIME = 30;   // 기본 목욕 시간(초) — 손님별 값은 GUEST_TYPES.bath
 const CLEAN_TIME = 1.6; // 탕 청소 시간(초)
 const START_TEMP = 34;  // 물을 처음 받았을 때 온도
 
@@ -98,38 +98,40 @@ const HERBS = {
 
 /* ---------- 손님(신령) ----------
  * {temp}, {herb}, {herb_eul}(을/를 자동) 치환
+ * patience: 대기 시간(초, 40~90) · bath: 목욕 시간(초, 20~50) — 기획서 v2.0 기준
+ * 대기 시간은 손님을 안내(따라오기)하는 동안 멈추고, 영업 마감 후에는 다시 줄어든다.
  */
 const GUEST_TYPES = {
   moss: {
-    name: '이끼 노인', herb: 'ssuk', temp: [40, 42], patience: 100,
+    name: '이끼 노인', herb: 'ssuk', temp: [40, 42], patience: 80, bath: 40,
     line: '허허, 비에 젖은 이끼가 영 무겁구먼. {temp}도쯤 되는 물에 {herb_eul} 띄워 주겠나?',
   },
   lantern: {
-    name: '등롱 요괴', herb: 'yuja', temp: [43, 45], patience: 92,
+    name: '등롱 요괴', herb: 'yuja', temp: [43, 45], patience: 70, bath: 30,
     line: '불씨가 꺼질 것 같아… {temp}도의 뜨끈한 물, 그리고 상큼한 {herb} 향이 필요해!',
   },
   river: {
-    name: '강물 정령', herb: 'changpo', temp: [38, 40], patience: 96,
+    name: '강물 정령', herb: 'changpo', temp: [38, 40], patience: 90, bath: 20,
     line: '흘러온 길이 너무 길었어요. {temp}도 정도로 미지근하게, {herb_eul} 넣어 주세요.',
   },
   mushroom: {
-    name: '버섯 할멈', herb: 'gamcho', temp: [41, 43], patience: 100,
+    name: '버섯 할멈', herb: 'gamcho', temp: [41, 43], patience: 75, bath: 45,
     line: '얘야, 허리가 쑤시는구나. {temp}도 물에 {herb_eul} 달여 넣어 다오.',
   },
   fox: {
-    name: '여우불 아가씨', herb: 'gyepi', temp: [44, 46], patience: 86,
+    name: '여우불 아가씨', herb: 'gyepi', temp: [44, 46], patience: 60, bath: 30,
     line: '후후, 차가운 물은 질색이야. {temp}도로 뜨겁게, {herb} 향도 듬뿍.',
   },
   turtle: {
-    name: '돌거북 신', herb: 'yuhwang', temp: [45, 47], patience: 110,
+    name: '돌거북 신', herb: 'yuhwang', temp: [45, 47], patience: 85, bath: 50,
     line: '…천 년 묵은 등껍질이 굳었다. {temp}도… {herb_eul} 부탁한다.',
   },
   rabbit: {
-    name: '달토끼', herb: 'bakha', temp: [38, 40], patience: 84,
+    name: '달토끼', herb: 'bakha', temp: [38, 40], patience: 40, bath: 20,
     line: '방아를 너무 찧었더니 땀이 나요! {temp}도로 시원하게, {herb_eul} 넣어 주세요!',
   },
   frog: {
-    name: '연잎 개구리 신', herb: 'yeon', temp: [39, 41], patience: 96,
+    name: '연잎 개구리 신', herb: 'yeon', temp: [39, 41], patience: 65, bath: 35,
     line: '개굴. 연못이 그리워서 왔다네. {temp}도 물에 {herb_eul} 띄워 주게, 개굴.',
   },
 };
@@ -145,29 +147,29 @@ const THANKS = {
 /* ---------- 영업일 ---------- */
 const DAYS = [
   {
-    title: '첫 영업', length: 190, guests: 3, patienceMul: 1.3, twoHerb: 0,
+    title: '첫 영업', length: 190, guests: 3, twoHerb: 0,
     pool: ['moss', 'river', 'lantern'], forced: ['moss', 'river', 'lantern'], keepOrder: true,
     intro: '선배 일꾼이 말했다. "손님 말을 잘 듣고, 약재는 정원이랑 연못에서 찾아. 다 쓴 탕은 꼭 닦아 두고!"',
   },
   {
-    title: '늘어나는 손님', length: 200, guests: 4, patienceMul: 1.08, twoHerb: 0,
+    title: '늘어나는 손님', length: 200, guests: 4, twoHerb: 0,
     pool: ['moss', 'river', 'lantern', 'mushroom', 'fox'], forced: ['mushroom', 'fox'],
     intro: '소문이 돌았는지 손님이 늘었다. 오늘은 약재 창고의 약재를 찾는 손님도 온다고 한다.',
   },
   {
-    title: '검은 그림자', length: 210, guests: 5, patienceMul: 1.0, twoHerb: 0,
+    title: '검은 그림자', length: 210, guests: 5, twoHerb: 0,
     pool: ['moss', 'river', 'lantern', 'mushroom', 'fox', 'turtle', 'rabbit'], forced: ['turtle', 'rabbit'],
     clues: ['mask', 'gold'], ghost: true,
     intro: '요즘 밤마다 검은 그림자를 봤다는 일꾼들이 있다. 연못가와 창고 구석을 유심히 살펴보자. 보일러실의 유황 소금을 찾는 손님도 온다.',
   },
   {
-    title: '말 없는 소문', length: 220, guests: 6, patienceMul: 0.95, twoHerb: 0.3,
+    title: '말 없는 소문', length: 220, guests: 6, twoHerb: 0.3,
     pool: ['moss', 'river', 'lantern', 'mushroom', 'fox', 'turtle', 'rabbit', 'frog'], forced: ['frog'],
     clues: ['note', 'shadow'],
     intro: '그림자는 아무 말도 하지 않는다고 한다. 보일러실과 복도에 무언가 남아 있을지도. 오늘부터는 약재를 두 가지 찾는 까다로운 손님도 온다.',
   },
   {
-    title: '얼굴 없는 손님', length: 220, guests: 5, patienceMul: 0.95, twoHerb: 0.35,
+    title: '얼굴 없는 손님', length: 220, guests: 5, twoHerb: 0.35,
     pool: ['moss', 'river', 'lantern', 'mushroom', 'fox', 'turtle', 'rabbit', 'frog'], forced: [],
     kaonashiAt: 0.3,
     intro: '마지막 날 밤. 안개가 짙다. 오늘, 그 손님이 찾아올 것만 같다.',
@@ -196,6 +198,8 @@ const CLUES = {
 const CLUE_ORDER = ['mask', 'gold', 'note', 'shadow'];
 const CLUES_NEEDED = 3;
 const KAONASHI_REQUEST = { temp: 37, herbs: ['yeon'] };
+const KAONASHI_BATH = 30; // 얼굴 없는 손님 목욕 시간(초)
+const CLOSING_GRACE = 150; // 영업 마감 후 남은 손님을 마무리할 수 있는 최대 시간(초, 안전장치)
 
 const GHOST_SPOTS = [[2.5, 8.2], [5.5, 11.5], [16.5, 7.5], [10.5, 4.6], [3.5, 4.6], [9.5, 11.5]];
 

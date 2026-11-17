@@ -370,7 +370,7 @@ const UI = (() => {
     if (!w || !m) return;
     E.day.textContent = `${w.day}일차 / 5`;
     const frac = w.time / w.length;
-    E.clock.textContent = Util.fmtClock(frac);
+    E.clock.textContent = w.closed ? '마감 정리' : Util.fmtClock(frac);
     E.timefill.style.width = (Util.clamp(frac, 0, 1) * 100) + '%';
     E.rep.textContent = m.stars.length ? `평판 ★${Util.avg(m.stars).toFixed(1)}` : '평판 —';
     E.coins.textContent = `${m.coins}냥`;

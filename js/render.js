@@ -661,7 +661,7 @@ const Render = (() => {
       text(ctx, '청소 필요', cx, y, 11, '#f7e7c8', { bold: true });
     } else if (o.state === 'occupied' && o.guest && o.guest.state === 'bathing') {
       const y = cyBase - (o.guest.type === 'kaonashi' ? 82 : 60);
-      const r = 1 - o.guest.bathT / BATH_TIME;
+      const r = 1 - o.guest.bathT / (o.guest.bathMax || BATH_TIME);
       circle(ctx, cx, y, 9, 'rgba(28,18,28,0.75)');
       ctx.strokeStyle = '#f2c96a'; ctx.lineWidth = 3;
       ctx.beginPath(); ctx.arc(cx, y, 7, -Math.PI / 2, -Math.PI / 2 + r * Math.PI * 2); ctx.stroke();

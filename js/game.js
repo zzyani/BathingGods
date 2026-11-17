@@ -113,6 +113,34 @@ function restartDay() {
 function quitToTitle() { showTitle(); }
 function restartToTitle() { showTitle(); }
 
+/* 영업 마감: 신규 접객 차단. 대기 중인 손님은 돌아가고,
+ * 안내·입욕·목욕 중인 손님은 끝까지 마무리할 수 있다. (기획서 v2.0) */
+function closeBusiness() {
+  const w = Game.world, m = Game.meta;
+  w.closed = true;
+  w.endTimer = -1;
+  for (const g of w.guests) {
+    if (g.special) {
+      if (g.state === 'kWait') { if (!m.kChoice) m.kChoice = 'none'; kaoLeave(g); }
+      else if (g.state === 'waiting' || g.state === 'arriving') kaoLeave(g);
+      else if (g.state === 'following') { g.noPatience = false; g.patience = g.patienceMax = 30; }
+      continue;
+    }
+    if (g.state === 'arriving' || g.state === 'waiting') {
+      g.state = 'leaving';
+      g.queueIdx = null;
+      g.path = npcPath(g.x, g.y, DOOR.x + 0.5, DOOR.y + 0.5);
+      w.stats.missed++; m.missed++;
+      w.stats.stars.push(0); m.stars.push(0);
+      w.stats.log.push({ name: guestName(g), stars: 0, note: '영업 시간이 끝나 돌아감' });
+    }
+  }
+  if (w.cfg.kaonashiAt && !w.kEventDone && !m.kChoice) m.kChoice = 'none';
+  Sfx.play('bell');
+  const left = w.guests.some(g => ['following', 'toTub', 'bathing'].includes(g.state));
+  UI.toast(left ? '영업 시간이 끝났어요! 새 손님은 받지 않고, 안내·목욕 중인 손님만 마무리합니다.' : '영업 시간이 끝났어요!', 'warn');
+}
+
 function endDay() {
   const w = Game.world, m = Game.meta;
   if (w.ended) return;
@@ -180,7 +208,7 @@ function makeSchedule(cfg) {
 function buildWorld(day, demo) {
   const cfg = DAYS[day - 1];
   const w = {
-    day, cfg, demo: !!demo, time: 0, length: cfg.length, ended: false, endTimer: -1,
+    day, cfg, demo: !!demo, time: 0, length: cfg.length, ended: false, closed: false, endTimer: -1,
     objects: [], tubs: [], guests: [], gid: 0, schedule: [], clueItems: [],
     player: { x: PLAYER_START.x, y: PLAYER_START.y, face: 1, moving: false, t: 0, path: null, target: null, repath: 0, stuck: 0, busy: 0, busyTotal: 1, busyLabel: '', busyDone: null },
     inventory: [], effects: [], floats: [], follower: null, kaonashi: null, kEventDone: false, ghost: null, heatSfx: 0,
@@ -457,7 +485,7 @@ function spawnGuest(type) {
   const temp = Util.randInt(T.temp[0], T.temp[1]);
   const herbs = [T.herb];
   if (cfg.twoHerb && Math.random() < cfg.twoHerb) herbs.push(Util.pick(Object.keys(HERBS).filter(h => h !== T.herb)));
-  const pm = T.patience * cfg.patienceMul * (hasUp('incense') ? 1.25 : 1);
+  const pm = T.patience * (hasUp('incense') ? 1.25 : 1);
   const g = {
     id: ++w.gid, type, x: DOOR.x + 0.5, y: DOOR.y + 0.5, face: -1, alpha: 0, moving: false,
     state: 'arriving', request: { temp, herbs }, known: false,
@@ -489,6 +517,11 @@ function updateGuest(g, dt) {
       }
       break;
     case 'following': {
+      // 마감 후에는 안내 중인 손님도 남은 대기 시간 안에서만 마무리 가능
+      if (w.closed && !g.noPatience) {
+        g.patience -= dt;
+        if (g.patience <= 0) { guestLeaveAngry(g); break; }
+      }
       const d = Util.dist(g.x, g.y, p.x, p.y);
       g.repath -= dt;
       if (d > 1.0) {
@@ -580,7 +613,8 @@ function seatGuest(g, tub) {
 function startBath(g) {
   const tub = g.tub;
   g.state = 'bathing';
-  g.bathT = BATH_TIME;
+  g.bathMax = g.special ? KAONASHI_BATH : (GUEST_TYPES[g.type].bath || BATH_TIME);
+  g.bathT = g.bathMax;
   g.x = tub.x + tub.w / 2;
   g.y = tub.y + tub.h / 2;
   g.face = 1;
@@ -856,6 +890,7 @@ function hintText() {
   const w = Game.world;
   if (!w || w.demo) return null;
   const p = w.player;
+  if (w.closed) return '영업 종료 — 안내 중인 손님을 탕에 모시고, 목욕이 끝나기를 기다리세요.';
   if (w.kaonashi && w.kaonashi.state === 'kWait') return '접수대 옆에 검은 손님이 서 있다. 말을 걸어 보자.';
   if (w.kaonashi && w.kaonashi.hosted && w.kaonashi.state !== 'leaving') return '얼굴 없는 손님에게 맞는 탕은? 단서 수첩(J)에 답이 있다.';
   if (w.day > 2) return null;
@@ -892,12 +927,13 @@ function updateWorld(dt) {
   const w = Game.world;
   if (w.ended) return;
   w.time += dt;
+  if (!w.closed && w.time >= w.length) closeBusiness();
   for (const s of w.schedule) {
-    if (!s.spawned && w.time >= s.at) {
+    if (!w.closed && !s.spawned && w.time >= s.at) {
       if (spawnGuest(s.type)) s.spawned = true; else s.at = w.time + 3;
     }
   }
-  if (w.cfg.kaonashiAt && !w.kEventDone && w.time >= w.cfg.kaonashiAt * w.length) {
+  if (!w.closed && w.cfg.kaonashiAt && !w.kEventDone && w.time >= w.cfg.kaonashiAt * w.length) {
     w.kEventDone = true;
     spawnKaonashi();
   }
@@ -924,7 +960,16 @@ function updateWorld(dt) {
   updateTubs(dt);
   updateEffects(dt);
 
-  if (w.time >= w.length) { endDay(); return; }
+  // 마감 후: 남은 손님이 모두 떠나면 정산 (안전장치로 CLOSING_GRACE초 뒤 강제 정산)
+  if (w.closed) {
+    if (w.time >= w.length + CLOSING_GRACE) { endDay(); return; }
+    if (w.guests.length === 0) {
+      if (w.endTimer < 0) w.endTimer = 1.5;
+      w.endTimer -= dt;
+      if (w.endTimer <= 0) endDay();
+    }
+    return;
+  }
   const allDone = w.schedule.every(s => s.spawned) && w.guests.length === 0 && (!w.cfg.kaonashiAt || w.kEventDone);
   if (allDone) {
     if (w.endTimer < 0) { w.endTimer = 3; UI.toast('오늘의 손님을 모두 맞이했어요! 곧 영업을 마칩니다.', 'good'); }
