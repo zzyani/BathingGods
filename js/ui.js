@@ -75,9 +75,9 @@ const UI = (() => {
         <div><h3>조작</h3><ul>
           <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / 방향키 — 이동</li>
           <li><b>마우스 클릭</b> — 손님·탕·약재와 상호작용 (멀리 있으면 그곳까지 걸어감)</li>
-          <li><kbd>E</kbd> — 가장 가까운 대상과 상호작용</li>
+          <li><kbd>Space</kbd> / <kbd>E</kbd> — 가장 가까운 대상과 상호작용</li>
           <li><kbd>Space</kbd> 꾹 — 탕 패널에서 불 지피기</li>
-          <li><kbd>1</kbd>~<kbd>3</kbd> — 대화 선택지 · <kbd>J</kbd> 단서 수첩 · <kbd>Esc</kbd> 일시정지 · <kbd>M</kbd> 소리</li>
+          <li><kbd>1</kbd>~<kbd>3</kbd> — 대화 선택지 (<kbd>Space</kbd>·<kbd>Enter</kbd>는 강조된 선택지) · <kbd>J</kbd> 단서 수첩 · <kbd>Esc</kbd> 일시정지 · <kbd>M</kbd> 소리</li>
         </ul></div>
         <div><h3>영업 흐름</h3><ol>
           <li>접수대 방석의 손님(<b>!</b>)을 클릭해 <b>온도와 약재</b> 주문을 듣는다.</li>
@@ -437,5 +437,6 @@ const UI = (() => {
     init, showScreen, hideScreen, showHUD, title, help, story, dayIntro, dayEnd, shop, ending,
     dialog, choose, closeModal, openTub, refreshTub, journal, pause, updateHUD, toast, tooltip, hideTooltip, setSoundIcon,
     hasDialogButton: i => !!(dialogButtons[i] && !dialogButtons[i].disabled),
+    primaryIndex: () => dialogButtons.findIndex(b => b.primary && !b.disabled),
   };
 })();

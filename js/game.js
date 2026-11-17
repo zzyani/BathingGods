@@ -103,7 +103,7 @@ function beginPlay() {
   UI.hideScreen();
   UI.showHUD(true);
   UI.updateHUD();
-  if (Game.world.day === 1) UI.toast('WASD로 이동, 마우스로 상호작용!', 'good');
+  if (Game.world.day === 1) UI.toast('WASD로 이동, 클릭 또는 Space로 상호작용!', 'good');
 }
 function restartDay() {
   if (!Game.daySnapshot) return;
@@ -366,10 +366,12 @@ function interact(it) {
   }
 }
 function interactNearest() {
-  const list = interactables().filter(inRange);
+  // 따라오는 손님은 항상 곁에 있으므로 키 상호작용 대상에서 제외 (돌려보내기는 클릭으로)
+  const list = interactables().filter(it => inRange(it) && !(it.type === 'guest' && it.ref.state === 'following'));
   if (!list.length) { UI.toast('주변에 상호작용할 대상이 없어요'); return; }
-  // 손님·단서를 오브젝트보다 우선
-  const prio = it => targetDist(it) - (it.char ? 0.5 : it.type === 'clue' ? 0.8 : 0);
+  // 손님·단서 > 탕·약재 > 장식(접수대 등) 순으로 우선
+  const bonus = { guest: 0.8, shadow: 0.8, clue: 0.8, deco: -1.5 };
+  const prio = it => targetDist(it) - (bonus[it.type] || 0);
   list.sort((a, b) => prio(a) - prio(b));
   interact(list[0]);
 }
@@ -911,7 +913,9 @@ function updateWorld(dt) {
   }
   updateGhost(dt);
 
-  Game.heatOn = Game.modal === 'tub' && !!Game.tub && (Game.heating || Input.keys.has('Space'));
+  // 탕을 Space로 연 경우, 키를 한 번 뗀 뒤부터 Space가 불 지피기로 동작
+  if (!Input.keys.has('Space')) Game.spaceLatch = false;
+  Game.heatOn = Game.modal === 'tub' && !!Game.tub && (Game.heating || (Input.keys.has('Space') && !Game.spaceLatch));
   if (Game.heatOn) {
     Game.tub.temp = Math.min(50, Game.tub.temp + (hasUp('firewood') ? 4.6 : 2.9) * dt);
     w.heatSfx -= dt;
@@ -934,7 +938,12 @@ function handleKeys() {
   if (P.has('KeyM')) toggleSound();
   if (Game.modal === 'dialog') {
     for (let i = 0; i < 4; i++) if (P.has('Digit' + (i + 1)) || P.has('Numpad' + (i + 1))) { UI.choose(i); return; }
-    if (P.has('Enter') && UI.hasDialogButton(0)) { UI.choose(0); return; }
+    // Space/Enter는 강조된(기본) 선택지만 고른다 — 중요한 선택을 실수로 누르지 않도록
+    if (P.has('Enter') || P.has('Space')) {
+      const i = UI.primaryIndex();
+      if (i >= 0) { Game.spaceLatch = true; UI.choose(i); }
+      return;
+    }
   }
   if (Game.screen !== 'play') return;
   if (P.has('Escape')) {
@@ -947,8 +956,9 @@ function handleKeys() {
     else if (!Game.modal) openJournal();
     return;
   }
-  if (!Game.modal && P.has('KeyE')) {
+  if (!Game.modal && (P.has('Space') || P.has('KeyE'))) {
     const p = Game.world.player;
+    Game.spaceLatch = true;
     if (p.busy <= 0) interactNearest();
   }
 }
