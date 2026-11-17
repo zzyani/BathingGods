@@ -13,86 +13,158 @@ const BATH_TIME = 30;   // 기본 목욕 시간(초) — 손님별 값은 GUEST_
 const CLEAN_TIME = 1.6; // 탕 청소 시간(초)
 const START_TEMP = 34;  // 물을 처음 받았을 때 온도
 
-/* ---------- 맵 ----------
- * #: 벽  ~: 연못  D: 정문(손님 전용)
- * g: 정원  s: 욕탕(돌바닥)  .: 복도(마루)
- * w: 약재 창고  b: 보일러실  r: 접수대(다다미)
+/* ---------- 맵 (장면 3개) ----------
+ * 메인 목욕탕 ↔ 탐험 구역(정원, 약재 창고)은 문으로 이어지며, 문을 지나면 장면이 전환된다.
+ * 탕·접수대·보일러실이 있는 목욕탕 → 약재까지 편도 약 4~6초.
+ * 정원·약재 창고의 빈 바닥은 앞으로 추가할 채집 지점(탕 재료)을 놓을 자리.
+ *
+ * #: 벽  (공백): 바깥(그리지 않음)  ~: 연못  D: 정문(손님 전용)
+ * G/S/M: 구역 이동 문 (정원 / 약재 창고 / 목욕탕으로)
+ * g: 정원  s: 욕탕·돌길  .: 복도(마루)  w: 약재 창고  b: 보일러실  r: 접수대(다다미)
  */
-const MAP_ROWS = [
-  '####################',
-  '#gggggg#sssssssssss#',
-  '#g~~~gg#sssssssssss#',
-  '#g~~~gg#sssssssssss#',
-  '#gggggg.sssssssssss#',
-  '#gggggg#sssssssssss#',
-  '###g####...........#',
-  '#..................#',
-  '#..................#',
-  '#####w###b##rrrrrrr#',
-  '#wwwwww#bbbb#rrrrrr#',
-  '#wwwwww#bbbb#rrrrrr#',
-  '#wwwwwwwbbbb#rrrrrrD',
-  '#wwwwww#bbbb#rrrrrr#',
-  '#wwwwww#bbbb#rrrrrr#',
-  '####################',
-];
-const MAP_W = MAP_ROWS[0].length;
-const MAP_H = MAP_ROWS.length;
-const DOOR = { x: 19, y: 12 };
-const PLAYER_START = { x: 15.5, y: 8.0 };
+const SCENES = {
+  main: {
+    name: '목욕탕',
+    rows: [
+      '       ################',
+      '       #ssssssssssssss#',
+      '       #ssssssssssssss#',
+      '       #ssssssssssssss#',
+      '       #ssssssssssssss#',
+      '       #ssssssssssssss#',
+      '###G####..............#',
+      '#.....................#',
+      '#.....................#',
+      '#####S###b##rrrrrrrrrr#',
+      '       #bbbb#rrrrrrrrr#',
+      '       #bbbb#rrrrrrrrr#',
+      '       #bbbb#rrrrrrrrrD',
+      '       #bbbb#rrrrrrrrr#',
+      '       #bbbb#rrrrrrrrr#',
+      '       ################',
+    ],
+    portals: {
+      G: { to: 'garden', at: [6.5, 8.3], label: '정원', orient: 'x' },
+      S: { to: 'storage', at: [5.5, 8.3], label: '약재 창고', orient: 'x' },
+    },
+    labels: [
+      { text: '욕탕', x: 14.6, y: 5.0 },
+      { text: '복도', x: 8.0, y: 8.2 },
+      { text: '보일러실', x: 9.6, y: 11.4 },
+      { text: '접수대', x: 18.6, y: 14.6 },
+    ],
+    // 벽 등롱 (벽면 아래 모서리 기준 좌표, wall: 붙어 있는 벽 타일)
+    lanterns: [
+      { x: 10.5, y: 1, wall: [10, 0] }, { x: 13.5, y: 1, wall: [13, 0] }, { x: 16.5, y: 1, wall: [16, 0] },
+      { x: 19.5, y: 1, wall: [19, 0] }, { x: 1, y: 8, wall: [0, 7] },
+    ],
+  },
+  garden: {
+    name: '정원',
+    rows: [
+      '#############',
+      '#ggggggggggg#',
+      '#g~~~ggggggg#',
+      '#g~~~ggggggg#',
+      '#ggggggggggg#',
+      '#ggggggggggg#',
+      '#ggggggggggg#',
+      '#ggggggggggg#',
+      '#ggggggggggg#',
+      '######M######',
+    ],
+    portals: { M: { to: 'main', at: [3.5, 7.4], label: '목욕탕', orient: 'x' } },
+    labels: [{ text: '정원', x: 6.5, y: 6.6 }],
+    lanterns: [{ x: 3.5, y: 1, wall: [3, 0] }, { x: 8.5, y: 1, wall: [8, 0] }, { x: 1, y: 4.5, wall: [0, 4] }],
+  },
+  storage: {
+    name: '약재 창고',
+    rows: [
+      '############',
+      '#wwwwwwwwww#',
+      '#wwwwwwwwww#',
+      '#wwwwwwwwww#',
+      '#wwwwwwwwww#',
+      '#wwwwwwwwww#',
+      '#wwwwwwwwww#',
+      '#wwwwwwwwww#',
+      '#wwwwwwwwww#',
+      '#####M######',
+    ],
+    portals: { M: { to: 'main', at: [5.5, 8.0], label: '목욕탕', orient: 'x' } },
+    labels: [{ text: '약재 창고', x: 5.6, y: 5.6 }],
+    lanterns: [{ x: 5.5, y: 1, wall: [5, 0] }, { x: 8.5, y: 1, wall: [8, 0] }, { x: 1, y: 3.5, wall: [0, 3] }, { x: 1, y: 6.5, wall: [0, 6] }],
+  },
+};
+for (const sc of Object.values(SCENES)) { sc.w = sc.rows[0].length; sc.h = sc.rows.length; }
 
-const AREA_LABELS = [
-  { text: '정원', x: 3.6, y: 5.3 },
-  { text: '욕탕', x: 9.6, y: 5.0 },
-  { text: '복도', x: 6.0, y: 8.2 },
-  { text: '약재 창고', x: 3.6, y: 12.6 },
-  { text: '보일러실', x: 9.6, y: 11.4 },
-  { text: '접수대', x: 16.4, y: 14.6 },
-];
+// 메인 목욕탕 기준 값 (손님은 항상 메인 목욕탕에만 있음)
+const MAP_ROWS = SCENES.main.rows;
+const MAP_W = SCENES.main.w;
+const MAP_H = SCENES.main.h;
+const DOOR = { x: 22, y: 12 };
+const PLAYER_START = { x: 15.5, y: 8.0 };
+const SCENE_FADE = 0.3; // 장면 전환 페이드 시간(초, 나가기/들어오기 각각)
 
 // 손님 대기석
 const QUEUE_SPOTS = [
-  [13.5, 12.5], [14.5, 12.5], [15.5, 12.5], [16.5, 12.5],
-  [13.5, 13.6], [14.5, 13.6], [15.5, 13.6], [16.5, 13.6],
+  [15.5, 12.5], [16.5, 12.5], [17.5, 12.5], [18.5, 12.5],
+  [15.5, 13.6], [16.5, 13.6], [17.5, 13.6], [18.5, 13.6],
 ];
-const K_SPOT = [17.5, 10.6]; // 5일차, 얼굴 없는 손님이 서는 자리
-
-// 벽 등롱 (벽면 아래 모서리 기준 좌표)
-const LANTERNS = [
-  { x: 3.5, y: 1, wall: [3, 0] }, { x: 10.5, y: 1, wall: [10, 0] }, { x: 13.5, y: 1, wall: [13, 0] },
-  { x: 16.5, y: 1, wall: [16, 0] }, { x: 1, y: 4.5, wall: [0, 4] }, { x: 1, y: 8, wall: [0, 7] },
-  { x: 1, y: 12.5, wall: [0, 12] },
-];
+const K_SPOT = [20.5, 10.6]; // 5일차, 얼굴 없는 손님이 서는 자리
 
 /* ---------- 오브젝트 ----------
- * herbs 가 있으면 약재 채집 지점, kind:'tub' 이면 탕
+ * herbs 가 있으면 약재 채집 지점, kind:'tub' 이면 탕 · scene 생략 시 메인 목욕탕
  */
 const OBJECT_DEFS = [
   { id: 'tub1', kind: 'tub', x: 9, y: 1, w: 2, h: 2, label: '탕 1' },
   { id: 'tub2', kind: 'tub', x: 12, y: 1, w: 2, h: 2, label: '탕 2' },
   { id: 'tub3', kind: 'tub', x: 15, y: 1, w: 2, h: 2, label: '탕 3' },
-  { id: 'tub4', kind: 'tub', x: 12, y: 4, w: 2, h: 2, label: '탕 4', requires: 'tub4' },
-  { id: 'yuja', kind: 'tree', x: 1, y: 1, w: 1, h: 1, label: '유자나무', herbs: ['yuja'], pickH: 80 },
-  { id: 'ssuk', kind: 'patch', x: 5, y: 1, w: 2, h: 1, label: '쑥밭', herbs: ['ssuk'], pickH: 18 },
-  { id: 'pond', kind: 'pond', x: 2, y: 2, w: 3, h: 2, label: '연못', herbs: ['changpo', 'yeon'], block: false, pickH: 14 },
-  { id: 'shelfA', kind: 'shelf', x: 1, y: 10, w: 1, h: 2, label: '약재 선반', herbs: ['gamcho', 'gyepi'], pickH: 64 },
-  { id: 'shelfB', kind: 'shelf', x: 3, y: 10, w: 2, h: 1, label: '약재 선반', herbs: ['bakha'], pickH: 64 },
+  { id: 'tub4', kind: 'tub', x: 18, y: 1, w: 2, h: 2, label: '탕 4', requires: 'tub4' },
+  { id: 'yuja', scene: 'garden', kind: 'tree', x: 1, y: 1, w: 1, h: 1, label: '유자나무', herbs: ['yuja'], pickH: 80 },
+  { id: 'ssuk', scene: 'garden', kind: 'patch', x: 8, y: 2, w: 2, h: 1, label: '쑥밭', herbs: ['ssuk'], pickH: 18 },
+  { id: 'pond', scene: 'garden', kind: 'pond', x: 2, y: 2, w: 3, h: 2, label: '연못', herbs: ['changpo', 'yeon'], block: false, pickH: 14 },
+  { id: 'shelfA', scene: 'storage', kind: 'shelf', x: 1, y: 1, w: 1, h: 2, label: '약재 선반', herbs: ['gamcho', 'gyepi'], pickH: 64 },
+  { id: 'shelfB', scene: 'storage', kind: 'shelf', x: 3, y: 1, w: 2, h: 1, label: '약재 선반', herbs: ['bakha'], pickH: 64 },
   { id: 'sulfur', kind: 'crate', x: 11, y: 10, w: 1, h: 1, label: '유황 소금 상자', herbs: ['yuhwang'], pickH: 26 },
-  { id: 'furnace', kind: 'furnace', x: 9, y: 13, w: 2, h: 2, label: '보일러 가마', pickH: 90,
-    flavor: '보일러가 우렁차게 끓고 있다. 이 열기가 모든 탕을 데운다.' },
-  { id: 'counter', kind: 'counter', x: 14, y: 10, w: 3, h: 1, label: '접수대', pickH: 34,
+  { id: 'furnace', kind: 'furnace', x: 9, y: 13, w: 2, h: 2, label: '보일러 가마', pickH: 90 },
+  { id: 'counter', kind: 'counter', x: 16, y: 10, w: 3, h: 1, label: '접수대', pickH: 34,
     flavor: '오늘의 손님 명부. 손님은 접수대 앞 방석에서 기다린다.' },
 ];
 
+/* ---------- 탕 온도 변화 · 보일러 ---------- */
+const TUB_COOL_RATE = 1 / 12;  // 물을 받은 탕은 12초에 1°C씩 식는다
+const TUB_MIN_TEMP = 30;       // 식어도 이 아래로는 내려가지 않음
+const TEMP_OFF_MARGIN = 1.5;   // 목욕 중 요청 온도에서 이만큼 벗어나면 손님이 불평
+const BOILER = {
+  maxFuel: 100,   // 장작 가득
+  heatDrain: 4,   // 불 지피는 동안 초당 소모량
+  idleDrain: 0.12, // 가만히 있어도 초당 소모량
+  lowSpeed: 0.35, // 장작이 떨어지면 가열 속도 배율
+  refuelTime: 1.2, // 장작 넣는 시간(초)
+  warnAt: 25,     // 이 아래로 떨어지면 경고
+};
+
+/* ---------- 손님 궁합 ----------
+ * 옆 탕에서 함께 목욕하면 효과 발생
+ * dislike: 둘 다 별점 −1 · like: 둘 다 팁 +COMPANY_TIP냥
+ */
+const TUB_NEIGHBORS = { tub1: ['tub2'], tub2: ['tub1', 'tub3'], tub3: ['tub2', 'tub4'], tub4: ['tub3'] }; // 탕은 한 줄로 배치
+const GUEST_RELATIONS = {
+  dislike: [['fox', 'river'], ['lantern', 'river'], ['turtle', 'rabbit'], ['fox', 'frog']],
+  like: [['moss', 'turtle'], ['river', 'frog'], ['mushroom', 'moss'], ['rabbit', 'lantern']],
+};
+const COMPANY_TIP = 10;
+
 /* ---------- 약재 ---------- */
 const HERBS = {
-  ssuk:    { name: '쑥',       short: '쑥', color: '#7da453', where: '정원 쑥밭' },
-  yuja:    { name: '유자',     short: '유', color: '#e9b824', where: '정원 유자나무' },
-  changpo: { name: '창포',     short: '창', color: '#5b8fc0', where: '정원 연못' },
-  yeon:    { name: '연꽃',     short: '연', color: '#e88bb0', where: '정원 연못' },
-  gamcho:  { name: '감초',     short: '감', color: '#c4914f', where: '약재 창고 선반' },
-  gyepi:   { name: '계피',     short: '계', color: '#a5532e', where: '약재 창고 선반' },
-  bakha:   { name: '박하',     short: '박', color: '#4fbfa8', where: '약재 창고 선반' },
+  ssuk:    { name: '쑥',       short: '쑥', color: '#7da453', where: '정원(복도 왼쪽 끝 위쪽 문) 쑥밭' },
+  yuja:    { name: '유자',     short: '유', color: '#e9b824', where: '정원(복도 왼쪽 끝 위쪽 문) 유자나무' },
+  changpo: { name: '창포',     short: '창', color: '#5b8fc0', where: '정원(복도 왼쪽 끝 위쪽 문) 연못' },
+  yeon:    { name: '연꽃',     short: '연', color: '#e88bb0', where: '정원(복도 왼쪽 끝 위쪽 문) 연못' },
+  gamcho:  { name: '감초',     short: '감', color: '#c4914f', where: '약재 창고(복도 왼쪽 끝 아래쪽 문) 선반' },
+  gyepi:   { name: '계피',     short: '계', color: '#a5532e', where: '약재 창고(복도 왼쪽 끝 아래쪽 문) 선반' },
+  bakha:   { name: '박하',     short: '박', color: '#4fbfa8', where: '약재 창고(복도 왼쪽 끝 아래쪽 문) 선반' },
   yuhwang: { name: '유황 소금', short: '황', color: '#cfc23c', where: '보일러실 상자' },
 };
 
@@ -179,11 +251,11 @@ const DAYS = [
 /* ---------- 가오나시 단서 (3~4일차) ---------- */
 const CLUES = {
   mask: {
-    day: 3, name: '깨진 가면 조각', x: 1.5, y: 4.5, icon: 'mask',
+    day: 3, name: '깨진 가면 조각', scene: 'garden', x: 1.5, y: 4.5, icon: 'mask',
     text: '연못가에서 하얀 가면 조각을 주웠다. 희미하게 연꽃 향이 배어 있다.',
   },
   gold: {
-    day: 3, name: '흙으로 변한 금덩이', x: 5.5, y: 13.5, icon: 'gold',
+    day: 3, name: '흙으로 변한 금덩이', scene: 'storage', x: 1.5, y: 7.5, icon: 'gold',
     text: '창고 구석에서 반짝이던 금덩이가, 손에 쥐자 흙으로 부서졌다. 누군가 금으로 마음을 사려 했던 걸까.',
   },
   note: {
@@ -201,7 +273,9 @@ const KAONASHI_REQUEST = { temp: 37, herbs: ['yeon'] };
 const KAONASHI_BATH = 30; // 얼굴 없는 손님 목욕 시간(초)
 const CLOSING_GRACE = 150; // 영업 마감 후 남은 손님을 마무리할 수 있는 최대 시간(초, 안전장치)
 
-const GHOST_SPOTS = [[2.5, 8.2], [5.5, 11.5], [16.5, 7.5], [10.5, 4.6], [3.5, 4.6], [9.5, 11.5]];
+const GHOST_SPOTS = [ // [x, y, 장면]
+  [2.5, 8.2, 'main'], [3.5, 3.5, 'storage'], [16.5, 7.5, 'main'], [10.5, 4.6, 'main'], [3.5, 4.6, 'garden'], [9.5, 11.5, 'main'],
+];
 
 /* ---------- 업그레이드 (일과 종료 후 상점) ---------- */
 const UPGRADES = [

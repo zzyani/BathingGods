@@ -10,6 +10,7 @@ const Render = (() => {
   const SERIF = '"Gowun Batang", "Apple SD Gothic Neo", serif';
   const TW2 = TILE_W / 2, TH2 = TILE_H / 2;
   const sx = (x, y) => (x - y) * TW2;
+  let S = SCENES.main; // 현재 그리는 장면
   const sy = (x, y) => (x + y) * TH2;
 
   /* ---------- 기본 도형 ---------- */
@@ -149,11 +150,11 @@ const Render = (() => {
 
   function floorDecor(ctx, w, t, hover) {
     // 구역 이름
-    for (const L of AREA_LABELS) {
+    for (const L of S.labels) {
       text(ctx, L.text, sx(L.x, L.y), sy(L.x, L.y), 15, 'rgba(255,240,210,0.26)', { bold: true, serif: true });
     }
     // 대기석 방석
-    for (const [x, y] of QUEUE_SPOTS) {
+    if (S === SCENES.main) for (const [x, y] of QUEUE_SPOTS) {
       ctx.fillStyle = 'rgba(122,46,42,0.75)';
       poly(ctx, rectPts(x - 0.3, y - 0.3, 0.6, 0.6)); ctx.fill();
       ctx.strokeStyle = 'rgba(240,200,120,0.4)'; ctx.stroke();
@@ -175,9 +176,9 @@ const Render = (() => {
   }
 
   /* ---------- 벽 · 등롱 · 정문 ---------- */
-  function isWall(i, j) { return i >= 0 && j >= 0 && i < MAP_W && j < MAP_H && MAP_ROWS[j][i] === '#'; }
+  function isWall(i, j) { return i >= 0 && j >= 0 && i < S.w && j < S.h && S.rows[j][i] === '#'; }
   function wallHeight(i, j) {
-    if (i === MAP_W - 1 || j === MAP_H - 1) return 14;
+    if (i === S.w - 1 || j === S.h - 1) return 14;
     if (i === 0 || j === 0) return 74;
     return 46;
   }
@@ -214,9 +215,12 @@ const Render = (() => {
     ell(ctx, x + sw, y, 4, 7, 'rgba(255,190,110,0.55)');
     ctx.fillStyle = '#2a1a12'; ctx.fillRect(x + sw - 4, y - 10, 8, 2.5); ctx.fillRect(x + sw - 4, y + 8, 8, 2.5);
   }
-  function door(ctx, t) {
-    const x1 = sx(DOOR.x + 0.55, DOOR.y + 0.02), y1 = sy(DOOR.x + 0.55, DOOR.y + 0.02);
-    const x2 = sx(DOOR.x + 0.55, DOOR.y + 0.98), y2 = sy(DOOR.x + 0.55, DOOR.y + 0.98);
+  // 문(기둥 + 노렌). orient 'y': 벽이 y축을 따라 이어짐(정문), 'x': 벽이 x축을 따라 이어짐(구역 이동 문)
+  function door(ctx, t, dx = DOOR.x, dy = DOOR.y, orient = 'y', label = '湯', cloth = '#8e2a22') {
+    const a = orient === 'y' ? [dx + 0.55, dy + 0.02] : [dx + 0.02, dy + 0.55];
+    const b = orient === 'y' ? [dx + 0.55, dy + 0.98] : [dx + 0.98, dy + 0.55];
+    const x1 = sx(a[0], a[1]), y1 = sy(a[0], a[1]);
+    const x2 = sx(b[0], b[1]), y2 = sy(b[0], b[1]);
     const H = 62;
     ctx.fillStyle = '#3a221a';
     ctx.fillRect(x1 - 2.5, y1 - H, 5, H);
@@ -226,14 +230,15 @@ const Render = (() => {
     ctx.lineWidth = 1;
     // 노렌(천)
     const wave = Math.sin(t * 1.8) * 1.5;
-    ctx.fillStyle = '#8e2a22';
+    ctx.fillStyle = cloth;
     ctx.beginPath();
     ctx.moveTo(x1, y1 - H); ctx.lineTo(x2, y2 - H);
     ctx.lineTo(x2 + wave, y2 - H + 26); ctx.lineTo(x1 + wave, y1 - H + 26);
     ctx.closePath(); ctx.fill();
     ctx.strokeStyle = 'rgba(0,0,0,0.3)';
     ctx.beginPath(); ctx.moveTo((x1 + x2) / 2, (y1 + y2) / 2 - H); ctx.lineTo((x1 + x2) / 2 + wave, (y1 + y2) / 2 - H + 26); ctx.stroke();
-    text(ctx, '湯', (x1 + x2) / 2 + wave * 0.5, (y1 + y2) / 2 - H + 13, 13, '#f5e6c8', { bold: true, serif: true });
+    const fs = label.length > 2 ? 9 : label.length > 1 ? 11 : 13;
+    text(ctx, label, (x1 + x2) / 2 + wave * 0.5, (y1 + y2) / 2 - H + 13, fs, '#f5e6c8', { bold: true, serif: true });
   }
 
   /* ---------- 오브젝트 ---------- */
@@ -351,7 +356,8 @@ const Render = (() => {
     const B = [sx(o.x + o.w - 0.05, o.y + 0.05), sy(o.x + o.w - 0.05, o.y + 0.05)];
     const P = u => [C[0] + (B[0] - C[0]) * u, C[1] + (B[1] - C[1]) * u];
     const a = P(0.3), b = P(0.7);
-    const fl = 0.75 + Math.sin(t * 13) * 0.12 + Math.sin(t * 7) * 0.1;
+    const fuel = o.fuelRatio ?? 1;
+    const fl = (0.75 + Math.sin(t * 13) * 0.12 + Math.sin(t * 7) * 0.1) * (fuel > 0 ? 0.45 + 0.55 * fuel : 0.2);
     ctx.fillStyle = `rgba(255,${120 + fl * 60 | 0},40,${fl})`;
     poly(ctx, [a[0], a[1] - 6, b[0], b[1] - 6, b[0], b[1] - 24, a[0], a[1] - 24]); ctx.fill();
     ctx.fillStyle = 'rgba(255,230,140,0.7)';
@@ -666,6 +672,15 @@ const Render = (() => {
       ctx.strokeStyle = '#f2c96a'; ctx.lineWidth = 3;
       ctx.beginPath(); ctx.arc(cx, y, 7, -Math.PI / 2, -Math.PI / 2 + r * Math.PI * 2); ctx.stroke();
       ctx.lineWidth = 1;
+      const g = o.guest;
+      if (g.offNow) {
+        const msg = g.offNow < 0 ? '앗, 차가워!' : '앗, 뜨거워!';
+        const pul = 1 + Math.sin(t * 8) * 0.06;
+        rrect(ctx, cx + 14, y - 11, 64, 22, 11, g.offNow < 0 ? 'rgba(70,120,190,0.92)' : 'rgba(200,70,50,0.92)');
+        text(ctx, msg, cx + 46, y, 11 * pul, '#fff', { bold: true });
+      }
+      if (g.badCompany) text(ctx, '💢', cx - 22, y, 15, '#e5533c');
+      else if (g.goodCompany) text(ctx, '♪', cx - 22, y + Math.sin(t * 5) * 2, 16, '#9fe08a', { bold: true, stroke: 'rgba(20,40,20,0.7)' });
     }
   }
   function busyBar(ctx, p) {
@@ -675,16 +690,18 @@ const Render = (() => {
     rrect(ctx, x - 21, y - 3, 42 * r, 6, 3, '#9fd6f0');
     if (p.busyLabel) text(ctx, p.busyLabel, x, y - 12, 11, '#fff', { bold: true, stroke: 'rgba(0,0,0,0.6)' });
   }
-  function floats(ctx, w) {
+  function floats(ctx, w, sid = 'main') {
     for (const f of w.floats) {
+      if ((f.scene || 'main') !== sid) continue;
       const a = Math.min(1, f.life / 0.5);
       ctx.globalAlpha = a;
       text(ctx, f.text, f.x, f.y - (f.max - f.life) * 16, f.size || 14, f.color || '#fff', { bold: true, stroke: 'rgba(25,15,20,0.85)', strokeW: 3.5 });
       ctx.globalAlpha = 1;
     }
   }
-  function effects(ctx, w) {
+  function effects(ctx, w, sid = 'main') {
     for (const e of w.effects) {
+      if ((e.scene || 'main') !== sid) continue;
       const k = e.life / e.max;
       if (e.kind === 'steam') {
         circle(ctx, e.x, e.y, e.r * (1.6 - k * 0.6), `rgba(255,255,255,${0.22 * k})`);
@@ -695,18 +712,20 @@ const Render = (() => {
       }
     }
   }
-  function glow(ctx, t) {
+  function glow(ctx, t, w) {
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    for (const L of LANTERNS) {
+    for (const L of S.lanterns) {
       const x = sx(L.x, L.y), y = sy(L.x, L.y) - 40;
       const r = 120 + Math.sin(t * 2 + L.x) * 6;
       const g = ctx.createRadialGradient(x, y, 4, x, y, r);
       g.addColorStop(0, 'rgba(255,170,90,0.2)'); g.addColorStop(1, 'rgba(255,170,90,0)');
       ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2);
     }
+    if (S !== SCENES.main) { ctx.restore(); return; }
     const fx = sx(11, 14), fy = sy(11, 14) - 14;
-    const fr = 110 + Math.sin(t * 9) * 8;
+    const fuel = w.boilerRatio ?? 1;
+    const fr = (110 + Math.sin(t * 9) * 8) * (fuel > 0 ? 0.5 + 0.5 * fuel : 0.3);
     const g2 = ctx.createRadialGradient(fx, fy, 4, fx, fy, fr);
     g2.addColorStop(0, 'rgba(255,120,40,0.26)'); g2.addColorStop(1, 'rgba(255,120,40,0)');
     ctx.fillStyle = g2; ctx.fillRect(fx - fr, fy - fr, fr * 2, fr * 2);
@@ -715,23 +734,32 @@ const Render = (() => {
 
   /* ---------- 월드 전체 ---------- */
   function world(ctx, w, t, hover) {
+    const sid = w.scene || 'main';
+    S = SCENES[sid];
+    const inMain = sid === 'main';
     const p = w.player;
     const showPlayer = !w.demo;
     const psx = sx(p.x, p.y), psy = sy(p.x, p.y), pk = p.x + p.y;
 
-    for (let j = 0; j < MAP_H; j++) {
-      for (let i = 0; i < MAP_W; i++) {
-        const ch = MAP_ROWS[j][i];
-        if (ch !== '#') floorTile(ctx, i, j, ch, t);
+    for (let j = 0; j < S.h; j++) {
+      for (let i = 0; i < S.w; i++) {
+        const ch = S.rows[j][i];
+        if (ch !== '#' && ch !== ' ') floorTile(ctx, i, j, ch, t);
       }
     }
-    pondDecor(ctx, t);
+    if (sid === 'garden') pondDecor(ctx, t);
     floorDecor(ctx, w, t, hover);
 
     const list = [];
-    for (let j = 0; j < MAP_H; j++) {
-      for (let i = 0; i < MAP_W; i++) {
-        if (MAP_ROWS[j][i] !== '#') continue;
+    for (let j = 0; j < S.h; j++) {
+      for (let i = 0; i < S.w; i++) {
+        const ch = S.rows[j][i];
+        if (S.portals[ch]) {
+          const P = S.portals[ch];
+          list.push({ k: i + j + 1.02, f: () => door(ctx, t, i, j, P.orient, P.label, P.to === 'main' ? '#8e2a22' : '#3d5a7a') });
+          continue;
+        }
+        if (ch !== '#') continue;
         const k = i + j + 1;
         let alpha = 1;
         const h = wallHeight(i, j);
@@ -742,22 +770,24 @@ const Render = (() => {
         list.push({ k, f: () => wall(ctx, i, j, alpha) });
       }
     }
-    for (const L of LANTERNS) list.push({ k: L.wall[0] + L.wall[1] + 1.02, f: () => lantern(ctx, L, t) });
-    list.push({ k: DOOR.x + DOOR.y + 1.02, f: () => door(ctx, t) });
+    for (const L of S.lanterns) list.push({ k: L.wall[0] + L.wall[1] + 1.02, f: () => lantern(ctx, L, t) });
+    if (inMain) list.push({ k: DOOR.x + DOOR.y + 1.02, f: () => door(ctx, t) });
     for (const o of w.objects) {
-      if (o.kind === 'pond') continue;
+      if (o.kind === 'pond' || (o.scene || 'main') !== sid) continue;
       list.push({ k: o.x + o.w - 0.5 + o.y + o.h - 0.5, f: () => drawObject(ctx, o, t) });
     }
     for (const c of w.clueItems) {
-      if (c.collected) continue;
+      if (c.collected || (c.scene || 'main') !== sid) continue;
       if (CLUES[c.id].npc) list.push({ k: c.x + c.y, f: () => kaonashi(ctx, sx(c.x, c.y), sy(c.x, c.y), t, 0.72 * c.alpha) });
       else list.push({ k: c.x + c.y, f: () => clueItem(ctx, c, t) });
     }
-    for (const g of w.guests) {
-      if (g.state === 'bathing') continue;
-      list.push({ k: g.x + g.y, f: () => drawChar(ctx, g, sx(g.x, g.y), sy(g.x, g.y), t) });
+    if (inMain) {
+      for (const g of w.guests) {
+        if (g.state === 'bathing') continue;
+        list.push({ k: g.x + g.y, f: () => drawChar(ctx, g, sx(g.x, g.y), sy(g.x, g.y), t) });
+      }
     }
-    if (w.ghost && w.ghost.alpha > 0.01) {
+    if (w.ghost && w.ghost.alpha > 0.01 && (w.ghost.scene || 'main') === sid) {
       const gh = w.ghost;
       list.push({ k: gh.x + gh.y, f: () => kaonashi(ctx, sx(gh.x, gh.y), sy(gh.x, gh.y), t, gh.alpha) });
     }
@@ -765,12 +795,14 @@ const Render = (() => {
     list.sort((a, b) => a.k - b.k);
     for (const d of list) d.f();
 
-    effects(ctx, w);
-    glow(ctx, t);
-    for (const o of w.tubs) tubTag(ctx, o, t);
-    for (const g of w.guests) guestOverlay(ctx, g, t);
+    effects(ctx, w, sid);
+    glow(ctx, t, w);
+    if (inMain) {
+      for (const o of w.tubs) tubTag(ctx, o, t);
+      for (const g of w.guests) guestOverlay(ctx, g, t);
+    }
     if (showPlayer && p.busy > 0) busyBar(ctx, p);
-    floats(ctx, w);
+    floats(ctx, w, sid);
   }
 
   /* ---------- 화면 배경 ---------- */

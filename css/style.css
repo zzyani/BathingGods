@@ -57,6 +57,33 @@ button { font-family: inherit; }
 .time-bar { height: 6px; border-radius: 3px; background: rgba(255,255,255,.12); margin-top: 6px; overflow: hidden; }
 #hud-timefill { height: 100%; width: 0; background: linear-gradient(90deg, #f0b860, #d8452f); }
 #hud-clues { color: #c9a9ea; }
+#away {
+  position: absolute; top: 64px; left: 50%; transform: translateX(-50%); z-index: 2; pointer-events: none;
+  max-width: min(560px, calc(100% - 560px)); min-width: 260px;
+  padding: 7px 14px; border-radius: 12px; background: rgba(30, 22, 44, .9); border: 1px solid rgba(232,195,106,.45);
+  font-size: 13px; color: #f3e6cc; box-shadow: 0 6px 18px rgba(0,0,0,.35);
+}
+#away b { color: var(--gold); margin-right: 8px; font-family: var(--serif); }
+#away .a-item { display: inline-block; margin: 2px 8px 2px 0; }
+#away .a-item.urgent { color: #ffab98; font-weight: 700; }
+#away .a-calm { opacity: .7; }
+.fuel-row { align-items: center; }
+.fuel-bar { flex: 1; height: 6px; border-radius: 3px; background: rgba(255,255,255,.12); overflow: hidden; }
+#hud-fuel { height: 100%; width: 100%; background: linear-gradient(90deg, #e8823a, #f6c45a); transition: width .2s linear; }
+.fuel-row.low #hud-fuel { background: var(--bad); }
+.fuel-row.low { color: #ffb4a4; animation: blink 1s steps(2) infinite; }
+@keyframes blink { 50% { opacity: .55; } }
+.o-rel { margin-top: 4px; font-size: 11px; color: var(--ink-soft); line-height: 1.5; }
+.o-rel .bad { color: var(--bad); font-weight: 700; }
+.o-rel .good { color: #3f8a32; font-weight: 700; }
+.o-req em { font-style: normal; font-size: 11px; font-weight: 700; color: var(--bad); }
+.tp-fuel { margin-top: 8px; font-size: 12px; color: #f3d8b4; display: flex; align-items: center; gap: 8px; }
+.tp-fuel .fuel-bar { height: 5px; }
+.tp-fuel.low { color: #ffab98; }
+.tp-note { font-size: 12px; padding: 6px 10px; border-radius: 8px; margin-top: 8px; background: #efe3c6; color: var(--ink-soft); }
+.tp-note.bad { background: #f6d2c8; color: #8e2a22; }
+.tp-note.good { background: #dcefd0; color: #2f6a25; }
+.tub-panel.locked .tp-herb { cursor: default; opacity: .75; }
 
 #orders { position: absolute; top: 16px; right: 16px; width: 236px; display: flex; flex-direction: column; gap: 8px; max-height: calc(100% - 120px); overflow: hidden; }
 .order {

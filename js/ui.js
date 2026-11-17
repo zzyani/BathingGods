@@ -9,7 +9,7 @@ const UI = (() => {
   let dialogButtons = [];
   let currentTub = null;
   let TP = {};
-  let tubSig = '', ordersSig = '', invSig = '', hintSig = '';
+  let tubSig = '', ordersSig = '', invSig = '', hintSig = '', awaySig = '';
 
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const chip = h => `<span class="chip" style="--c:${HERBS[h].color}"><b>${HERBS[h].short}</b>${HERBS[h].name}</span>`;
@@ -19,9 +19,9 @@ const UI = (() => {
     E = {
       hud: $('#hud'), day: $('#hud-day'), clock: $('#hud-clock'), timefill: $('#hud-timefill'),
       rep: $('#hud-rep'), coins: $('#hud-coins'), clues: $('#hud-clues'),
-      orders: $('#orders'), hint: $('#hint'), inv: $('#inventory'), toasts: $('#toasts'),
+      orders: $('#orders'), away: $('#away'), hint: $('#hint'), inv: $('#inventory'), toasts: $('#toasts'),
       tooltip: $('#tooltip'), screen: $('#screen'), modal: $('#modal'),
-      btnJournal: $('#btn-journal'), btnSound: $('#btn-sound'), btnPause: $('#btn-pause'),
+      btnJournal: $('#btn-journal'), fuelRow: $('#hud-fuel-row'), fuel: $('#hud-fuel'), fuelTxt: $('#hud-fuel-txt'), btnSound: $('#btn-sound'), btnPause: $('#btn-pause'),
     };
     E.btnJournal.onclick = () => { E.btnJournal.blur(); if (!Game.modal) openJournal(); else if (Game.modal === 'journal') closeModal(); };
     E.btnSound.onclick = () => { E.btnSound.blur(); toggleSound(); };
@@ -81,15 +81,21 @@ const UI = (() => {
         </ul></div>
         <div><h3>영업 흐름</h3><ol>
           <li>접수대 방석의 손님(<b>!</b>)을 클릭해 <b>온도와 약재</b> 주문을 듣는다.</li>
-          <li>정원·연못·약재 창고·보일러실을 돌아다니며 약재를 챙긴다.</li>
+          <li>복도 왼쪽 끝의 문으로 <b>정원</b>·<b>약재 창고</b>에 다녀오거나, 보일러실에서 약재를 챙긴다. (구역에 있는 동안 화면 위 "목욕탕 소식"을 확인!)</li>
           <li>빈 탕을 클릭 → 불을 지펴 온도를 맞추고 약재를 넣는다.</li>
           <li>손님을 다시 클릭하면 따라온다 → 준비된 탕을 클릭해 안내.</li>
           <li>목욕이 끝나면 ★1~5 평가. 사용한 탕은 클릭해 <b>청소</b>.</li>
         </ol></div>
+        <div><h3>탕 관리</h3><ul>
+          <li>물을 받은 탕은 <b>서서히 식는다</b>. 손님이 "차가워!" 하면 탕을 클릭해 다시 데우자.</li>
+          <li>불은 <b>보일러 장작</b>을 쓴다. 장작이 떨어지면 가열이 느려지니 보일러실 가마를 클릭해 채우자.</li>
+          <li><b>손님 궁합</b>: 사이가 나쁜 손님을 옆 탕에 넣으면 둘 다 별점 −1, 사이가 좋으면 팁이 붙는다. 주문 카드에서 확인!</li>
+        </ul></div>
         <div><h3>평가</h3><ul>
           <li>온도 ±1°C 이내면 만점, 벗어날수록 감점</li>
           <li>약재가 빠지면 크게 감점, 엉뚱한 약재도 감점</li>
           <li>인내심이 바닥나면 손님은 화가 나서 돌아간다</li>
+          <li>목욕 중 온도가 오래 어긋나면 감점</li>
         </ul></div>
         <div><h3>이야기</h3><ul>
           <li>3~4일차에는 목욕탕 곳곳에 <b>얼굴 없는 손님</b>의 단서가 반짝인다.</li>
@@ -249,7 +255,9 @@ const UI = (() => {
         <div class="thermo-read"><span id="tp-temp">34</span><small>°C</small></div>
         <div class="thermo-bar"><div class="thermo-marks" id="tp-marks"></div><div class="thermo-fill" id="tp-fill"></div></div>
         <div class="thermo-scale"><span>30</span><span>35</span><span>40</span><span>45</span><span>50</span></div>
+        <div class="tp-fuel" id="tp-fuel"><span>🔥 보일러</span><div class="fuel-bar"><div id="tp-fuel-bar" style="height:100%;background:#f0a050"></div></div><span id="tp-fuel-txt"></span></div>
       </div>
+      <div id="tp-note" class="tp-note hidden"></div>
       <div class="tp-row">
         <button class="btn heat" id="tp-heat">🔥 불 지피기<small>꾹 누르기 · Space</small></button>
         <button class="btn cool" id="tp-cool">💧 찬물 붓기<small>−1°C</small></button>
@@ -261,7 +269,7 @@ const UI = (() => {
       <div class="tp-label">주문 메모</div>
       <div class="tp-orders" id="tp-orders"></div>
       <div class="tp-foot">
-        <button class="btn" data-act="drain">물 빼기</button>
+        <button class="btn" data-act="drain" id="tp-drain">물 빼기</button>
         <button class="btn primary hidden" data-act="seat" id="tp-seat">손님 모시기</button>
         <button class="btn primary" data-act="close">완료</button>
       </div>
@@ -270,6 +278,8 @@ const UI = (() => {
       temp: E.modal.querySelector('#tp-temp'), fill: E.modal.querySelector('#tp-fill'), marks: E.modal.querySelector('#tp-marks'),
       herbs: E.modal.querySelector('#tp-herbs'), inv: E.modal.querySelector('#tp-inv'), orders: E.modal.querySelector('#tp-orders'),
       seat: E.modal.querySelector('#tp-seat'), heat: E.modal.querySelector('#tp-heat'),
+      fuel: E.modal.querySelector('#tp-fuel'), fuelBar: E.modal.querySelector('#tp-fuel-bar'), fuelTxt: E.modal.querySelector('#tp-fuel-txt'),
+      note: E.modal.querySelector('#tp-note'), drain: E.modal.querySelector('#tp-drain'), panel: E.modal.querySelector('.tub-panel'),
     };
     const on = e => { e.preventDefault(); Sfx.ensure(); Game.heating = true; };
     const off = () => { Game.heating = false; };
@@ -289,6 +299,25 @@ const UI = (() => {
     TP.temp.textContent = Math.round(tub.temp);
     TP.fill.style.left = (Util.clamp((tub.temp - 30) / 20, 0, 1) * 100) + '%';
     TP.heat.classList.toggle('on', !!Game.heatOn);
+    const fuel = Util.clamp(w.fuel / BOILER.maxFuel, 0, 1);
+    TP.fuelBar.style.width = (fuel * 100) + '%';
+    TP.fuelTxt.textContent = w.fuel <= 0 ? '장작 없음 — 가열이 느려요' : `${Math.round(fuel * 100)}%`;
+    TP.fuel.classList.toggle('low', w.fuel < BOILER.warnAt);
+    // 안내/목욕 정보 메모
+    const bather = tub.state === 'occupied' && tub.guest && tub.guest.state === 'bathing' ? tub.guest : null;
+    let note = '', noteCls = '';
+    if (bather) {
+      const want = bather.hidden ? '???' : `${bather.request.temp}°C`;
+      note = `${guestName(bather)} 목욕 중 · 원하는 온도 ${want}${bather.offNow ? (bather.offNow < 0 ? ' — 물이 식었어요!' : ' — 너무 뜨거워요!') : ''}`;
+      noteCls = bather.offNow ? 'bad' : '';
+    } else if (w.follower) {
+      const comp = companyNotes(tub, w.follower.type);
+      if (comp.length) { note = comp.join(' / '); noteCls = comp.some(c => c.includes('나쁨')) ? 'bad' : 'good'; }
+    }
+    TP.note.textContent = note;
+    TP.note.className = 'tp-note ' + noteCls + (note ? '' : ' hidden');
+    TP.panel.classList.toggle('locked', !!bather);
+    TP.drain.classList.toggle('hidden', tub.state === 'occupied');
     const orders = w.guests.filter(g => g.known && ['waiting', 'following', 'arriving'].includes(g.state));
     const sig = JSON.stringify([tub.herbs, w.inventory, w.follower ? w.follower.id : 0, orders.map(g => g.id)]);
     if (sig === tubSig) return;
@@ -304,7 +333,7 @@ const UI = (() => {
       : '<span class="tp-empty">들은 주문이 없다</span>';
     TP.marks.innerHTML = orders.filter(g => !g.hidden).map(g =>
       `<span style="left:${(g.request.temp - 30) / 20 * 100}%;--c:${HERBS[g.request.herbs[0]].color}">${g.request.temp}</span>`).join('');
-    if (w.follower) {
+    if (w.follower && tub.state === 'ready') {
       TP.seat.classList.remove('hidden');
       TP.seat.textContent = `${guestName(w.follower)} 모시기`;
     } else TP.seat.classList.add('hidden');
@@ -359,10 +388,18 @@ const UI = (() => {
     else if (!g.known) req = '<i>주문을 아직 듣지 않음</i>';
     else if (g.hidden) req = '<b>???</b><i>단서를 떠올려 보자 (J)</i>';
     else req = `<b>${g.request.temp}°C</b>${g.request.herbs.map(chip).join('')}`;
+    if (g.state === 'bathing' && g.offNow) req += `<em>${g.offNow < 0 ? '물이 식었어요!' : '너무 뜨거워요!'}</em>`;
+    let rel = '';
+    if (g.known && !g.special && g.state !== 'bathing') {
+      const r = relationsOf(g.type), parts = [];
+      if (r.dislike.length) parts.push(`<span class="bad">싫어함</span> ${r.dislike.map(t => esc(GUEST_TYPES[t].name)).join(', ')}`);
+      if (r.like.length) parts.push(`<span class="good">좋아함</span> ${r.like.map(t => esc(GUEST_TYPES[t].name)).join(', ')}`);
+      if (parts.length) rel = `<div class="o-rel">${parts.join(' · ')}</div>`;
+    }
     const pat = g.noPatience || g.state === 'bathing' || g.state === 'toTub' ? '' : '<div class="o-pat"><i></i></div>';
     return `<div class="order s-${g.state}${g.special ? ' special' : ''}" data-g="${g.id}">
       <div class="o-head"><span class="o-name">${esc(guestName(g))}</span><span class="o-state">${STATE_LABEL[g.state] || ''}</span></div>
-      <div class="o-req">${req}</div>${pat}</div>`;
+      <div class="o-req">${req}</div>${rel}${pat}</div>`;
   }
 
   function updateHUD() {
@@ -374,13 +411,17 @@ const UI = (() => {
     E.timefill.style.width = (Util.clamp(frac, 0, 1) * 100) + '%';
     E.rep.textContent = m.stars.length ? `평판 ★${Util.avg(m.stars).toFixed(1)}` : '평판 —';
     E.coins.textContent = `${m.coins}냥`;
+    const fuel = Util.clamp(w.fuel / BOILER.maxFuel, 0, 1);
+    E.fuel.style.width = (fuel * 100) + '%';
+    E.fuelTxt.textContent = `${Math.round(fuel * 100)}%`;
+    E.fuelRow.classList.toggle('low', w.fuel < BOILER.warnAt);
     const showClues = w.day >= 3 || m.clues.length > 0;
     E.clues.classList.toggle('hidden', !showClues);
     if (showClues) E.clues.textContent = `단서 ${m.clues.length}/4`;
     E.btnJournal.classList.toggle('hidden', !showClues);
 
     const list = w.guests.filter(g => STATE_LABEL[g.state] && !(g.state === 'arriving' && g.special && !g.hosted));
-    const sig = list.map(g => `${g.id}:${g.state}:${g.known ? 1 : 0}:${g.hidden ? 1 : 0}`).join('|');
+    const sig = list.map(g => `${g.id}:${g.state}:${g.known ? 1 : 0}:${g.hidden ? 1 : 0}:${g.offNow || 0}`).join('|');
     if (sig !== ordersSig) { ordersSig = sig; E.orders.innerHTML = list.map(orderCard).join(''); }
     for (const g of list) {
       if (g.noPatience) continue;
@@ -389,6 +430,22 @@ const UI = (() => {
       const r = Util.clamp(g.patience / g.patienceMax, 0, 1);
       el.style.width = (r * 100) + '%';
       el.className = r > 0.5 ? '' : r > 0.25 ? 'mid' : 'low';
+    }
+
+    // 탐험 구역에 있을 때: 목욕탕 소식 띠
+    if (w.scene !== 'main') {
+      const al = awayAlerts();
+      const asig = al.map(a => a.text).join('|');
+      if (asig !== awaySig || E.away.classList.contains('hidden')) {
+        awaySig = asig;
+        E.away.innerHTML = `<b>목욕탕 소식</b>${al.length
+          ? al.map(a => `<span class="a-item ${a.urgent ? 'urgent' : ''}">${esc(a.text)}</span>`).join('')
+          : '<span class="a-calm">목욕탕은 조용하다</span>'}`;
+        E.away.classList.remove('hidden');
+      }
+    } else if (!E.away.classList.contains('hidden')) {
+      E.away.classList.add('hidden');
+      awaySig = '';
     }
 
     const cap = invCap();

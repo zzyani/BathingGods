@@ -125,8 +125,7 @@ const Sfx = {
 /* BFS 길찾기 (8방향, 모서리 끼어가기 금지) */
 const Path = {
   DIRS: [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]],
-  bfs(sx, sy, isGoal, canWalk) {
-    const W = MAP_W, H = MAP_H;
+  bfs(sx, sy, isGoal, canWalk, W = MAP_W, H = MAP_H) {
     if (sx < 0 || sy < 0 || sx >= W || sy >= H) return null;
     const prev = new Int16Array(W * H).fill(-2);
     const start = sy * W + sx;
