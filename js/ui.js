@@ -100,8 +100,9 @@ const UI = (() => {
           <li>목욕 중 온도가 오래 어긋나면 감점</li>
         </ul></div>
         <div><h3>이야기</h3><ul>
-          <li>3~4일차에는 목욕탕 곳곳에 <b>얼굴 없는 손님</b>의 단서가 반짝인다.</li>
-          <li>5일차 밤의 선택에 따라 엔딩이 달라진다.</li>
+          <li><b>특별한 손님</b>은 한 번에 한 분씩 온다. 이틀 동안 목욕탕 곳곳에 단서를 남기고, 사흘째 밤에 찾아온다.</li>
+          <li>그 손님의 단서를 ${CLUES_NEEDED}개 이상 모으면 맞이할 수 있다. 단서가 알려 준 탕을 준비하면 선물을 남긴다.</li>
+          <li>${DAYS.length}일차, 마지막 손님에 대한 선택에 따라 엔딩이 달라진다.</li>
         </ul></div>
       </div>`;
   }
@@ -127,18 +128,19 @@ const UI = (() => {
 
   function dayIntro(day, cfg, meta) {
     const owned = UPGRADES.filter(u => meta.upgrades.includes(u.id));
+    const gifts = giftsOf(meta);
     showScreen(`<div class="card">
-      <div class="day-num">${day}일차</div>
+      <div class="day-num">${day}일차 <small>/ ${DAYS.length}</small></div>
       <div class="day-title">${esc(cfg.title)}</div>
       <p class="day-text">${esc(cfg.intro)}</p>
       <ul class="day-info">
         <li>영업 시간 18:00 ~ 02:00 · 예상 손님 ${cfg.guests}명</li>
         <li>보유 ${meta.coins}냥 · 지금까지의 평판 ${meta.stars.length ? '★' + Util.avg(meta.stars).toFixed(1) : '—'}</li>
         ${cfg.twoHerb ? '<li>약재를 두 가지 찾는 손님이 있다</li>' : ''}
-        ${cfg.clues ? '<li class="kao">오늘은 얼굴 없는 손님의 단서를 찾을 수 있다 (반짝이는 곳을 살펴보자)</li>' : ''}
-        ${cfg.kaonashiAt ? `<li class="kao">특별한 손님이 찾아온다 · 모은 단서 ${meta.clues.length}/4</li>` : ''}
+        ${cfg.clues ? `<li class="kao">오늘은 ${esc(specialLabel(specialOfDay(day), meta))}의 단서를 찾을 수 있다 (반짝이는 곳을 살펴보자)</li>` : ''}
+        ${cfg.special ? `<li class="kao">특별한 손님 ${esc(specialLabel(cfg.special, meta))}이(가) 찾아온다 · 모은 단서 ${specialClueCount(cfg.special, meta)}/${cluesOf(cfg.special).length}</li>` : ''}
       </ul>
-      ${owned.length ? `<div class="owned">${owned.map(u => `<span>${esc(u.name)}</span>`).join('')}</div>` : ''}
+      ${owned.length || gifts.length ? `<div class="owned">${owned.map(u => `<span>${esc(u.name)}</span>`).join('')}${gifts.map(g => `<span class="gift">🎁 ${esc(g.name)}</span>`).join('')}</div>` : ''}
       <div class="actions"><button class="btn" data-act="help">조작법</button><button class="btn primary" data-act="go">영업 시작</button></div>
     </div>`);
     bind(E.screen, { go: () => beginPlay(), help: () => help(() => dayIntro(day, cfg, meta)) });
@@ -158,9 +160,9 @@ const UI = (() => {
         <div>오늘의 평판<b>★${dayAvg}</b></div>
         <div>번 돈<b>+${stats.coins}냥</b></div>
         <div>총점<b>${meta.score}</b></div>
-        ${day >= 3 ? `<div>단서<b>${meta.clues.length}/4</b></div>` : ''}
+        ${specialOfDay(day) ? `<div>${esc(specialLabel(specialOfDay(day), meta))} 단서<b>${specialClueCount(specialOfDay(day), meta)}/${cluesOf(specialOfDay(day)).length}</b></div>` : ''}
       </div>
-      <div class="actions"><button class="btn primary" data-act="next">${day < 5 ? '상점으로' : '엔딩 보기'}</button></div>
+      <div class="actions"><button class="btn primary" data-act="next">${day < DAYS.length ? '상점으로' : '엔딩 보기'}</button></div>
     </div>`);
     bind(E.screen, { next });
   }
@@ -190,7 +192,7 @@ const UI = (() => {
     } else {
       const k = epilogueKey(m);
       paras = `<p>${esc(RANKS[data.rank].text)}</p><p>${esc(KAONASHI_LINES[k])}</p>
-        <p class="hint">숨겨진 결말이 있습니다 — 3·4일차의 단서를 ${CLUES_NEEDED}개 이상 모으고, 마지막 밤에 그를 손님으로 맞이해 보세요.</p>`;
+        <p class="hint">숨겨진 결말이 있습니다 — 마지막 손님인 검은 그림자의 단서를 ${CLUES_NEEDED}개 이상 모으고, 마지막 밤에 그를 손님으로 맞이해 보세요.</p>`;
     }
     showScreen(`<div class="card ending ${type}">
       <div class="end-tag">${ENDING_INFO[type].tag}</div>${data.newEntry ? '<div class="new-badge">앨범에 새 엔딩이 기록되었어요</div>' : ''}
@@ -203,7 +205,7 @@ const UI = (() => {
         <div>평균 평판<b>★${data.avg.toFixed(1)}</b></div>
         <div>맞이한 손님<b>${m.served}명</b></div>
         <div>놓친 손님<b>${m.missed}명</b></div>
-        <div>단서<b>${m.clues.length}/4</b></div>
+        <div>맞이한 특별한 손님<b>${healedCount(m)}/${SPECIAL_ORDER.length}</b></div>
       </div>
       <div class="actions"><button class="btn primary" data-act="title">타이틀로</button></div>
     </div>`);
@@ -272,7 +274,7 @@ const UI = (() => {
     E.modal.innerHTML = '';
   }
 
-  function dialog({ portrait, name, text, buttons }) {
+  function dialog({ portrait, name, text, buttons, silhouette = false }) {
     hideTooltip();
     Game.modal = 'dialog';
     dialogButtons = buttons;
@@ -285,7 +287,7 @@ const UI = (() => {
         <div class="dlg-btns">${buttons.map((b, i) => `<button class="btn ${b.primary ? 'primary' : ''}" data-i="${i}" ${b.disabled ? 'disabled' : ''}>
           <span class="key">${i + 1}</span>${esc(b.label)}${b.note ? `<small>${esc(b.note)}</small>` : ''}</button>`).join('')}</div>
       </div></div>`;
-    Render.portrait(E.modal.querySelector('canvas'), portrait);
+    Render.portrait(E.modal.querySelector('canvas'), portrait, { silhouette });
     E.modal.querySelectorAll('[data-i]').forEach(btn => btn.addEventListener('click', () => choose(+btn.dataset.i)));
   }
   function choose(i) {
@@ -392,22 +394,47 @@ const UI = (() => {
     } else TP.seat.classList.add('hidden');
   }
 
-  function journal(meta) {
+  function journal(meta, sel) {
     hideTooltip();
     Game.modal = 'journal';
     E.modal.className = 'modal center';
-    const n = meta.clues.length;
+    const day = meta.day;
+    const opened = id => specialSchedule(id).clueDays[0] <= day || specialClueCount(id, meta) > 0;
+    if (!sel || !opened(sel)) sel = specialOfDay(day) || [...SPECIAL_ORDER].reverse().find(opened) || null;
+    const tabs = SPECIAL_ORDER.map(id => opened(id)
+      ? `<button class="j-tab ${id === sel ? 'on' : ''} ${meta.specials && meta.specials[id] && meta.specials[id].result === 'healed' ? 'done' : ''}" data-act="tab" data-id="${id}">${esc(specialLabel(id, meta))}</button>`
+      : `<button class="j-tab locked" disabled>???<small>${specialSchedule(id).clueDays[0]}일차~</small></button>`).join('');
+    let body;
+    if (!sel) {
+      body = `<p class="j-intro">아직 기록된 단서가 없다. ${SPECIAL_START}일차부터 목욕탕 곳곳을 살펴보자.</p>`;
+    } else {
+      const S = SPECIALS[sel], sch = specialSchedule(sel), ids = cluesOf(sel), n = specialClueCount(sel, meta);
+      const r = (meta.specials && meta.specials[sel]) || {};
+      let status;
+      if (r.result === 'healed') status = S.gift ? `맞이함 · 선물 「${S.gift.name}」 — ${S.gift.desc}` : '맞이함 · 마음을 열었다';
+      else if (r.result === 'failed') status = '맞이했지만, 맞는 탕을 준비하지 못했다';
+      else if (r.choice === 'gold') status = '금을 받았다';
+      else if (r.choice === 'refuse') status = '돌려보냈다';
+      else if (r.choice === 'none') status = '만나지 못하고 지나갔다';
+      else if (r.choice === 'host') status = '오늘 손님으로 맞이했다 — 맞는 탕을 준비하자';
+      else status = sch.visit === day ? '오늘 밤 찾아온다' : `${sch.visit}일차 밤에 찾아온다`;
+      body = `<div class="j-who"><canvas class="j-portrait" width="96" height="96"></canvas>
+          <div><b>${esc(specialLabel(sel, meta))}</b><p>${esc(status)}</p></div></div>
+        <div class="j-list">${ids.map((id, i) => {
+          const c = CLUES[id], got = meta.clues.includes(id);
+          return `<div class="j-item ${got ? 'got' : ''}"><div class="j-num">${i + 1}</div><div><b>${got ? esc(c.name) : '???'}</b>
+            <p>${got ? esc(c.text) : `${clueDay(id)}일차, 목욕탕 어딘가에 남아 있다.`}</p></div></div>`;
+        }).join('')}</div>
+        <p class="j-foot">단서 ${n} / ${ids.length} ${n >= CLUES_NEEDED ? '— 이 손님에게 맞는 탕을 떠올릴 수 있다.' : `· ${CLUES_NEEDED}개 모으면 맞이할 수 있다`}</p>`;
+    }
     E.modal.innerHTML = `<div class="panel journal">
       <div class="panel-head"><span>📜 단서 수첩</span><button class="x" data-act="close">✕</button></div>
-      <p class="j-intro">${n ? '얼굴 없는 손님에 대해 알게 된 것들.' : '아직 기록된 단서가 없다. 3일차부터 목욕탕 곳곳을 살펴보자.'}</p>
-      <div class="j-list">${CLUE_ORDER.map((id, i) => {
-        const c = CLUES[id], got = meta.clues.includes(id);
-        return `<div class="j-item ${got ? 'got' : ''}"><div class="j-num">${i + 1}</div><div><b>${got ? esc(c.name) : '???'}</b>
-          <p>${got ? esc(c.text) : `${c.day}일차, 목욕탕 어딘가에 남아 있다.`}</p></div></div>`;
-      }).join('')}</div>
-      <p class="j-foot">단서 ${n} / 4 ${n >= CLUES_NEEDED ? '— 마지막 밤, 그에게 건넬 말이 생겼다.' : ''}</p>
+      <div class="j-tabs">${tabs}</div>
+      ${body}
     </div>`;
-    bind(E.modal, { close: () => closeModal() });
+    const pc = E.modal.querySelector('.j-portrait');
+    if (pc && sel) Render.portrait(pc, sel, { silhouette: !specialMet(sel, meta) });   // 방문 전에는 외형을 가린다
+    bind(E.modal, { close: () => closeModal(), tab: b => journal(meta, b.dataset.id) });
   }
 
   function pause() {
@@ -459,7 +486,7 @@ const UI = (() => {
   function updateHUD() {
     const w = Game.world, m = Game.meta;
     if (!w || !m) return;
-    E.day.textContent = `${w.day}일차 / 5`;
+    E.day.textContent = `${w.day}일차 / ${DAYS.length}`;
     const frac = w.time / w.length;
     E.clock.textContent = w.closed ? '마감 정리' : Util.fmtClock(frac);
     E.timefill.style.width = (Util.clamp(frac, 0, 1) * 100) + '%';
@@ -469,9 +496,10 @@ const UI = (() => {
     E.fuel.style.width = (fuel * 100) + '%';
     E.fuelTxt.textContent = `${Math.round(fuel * 100)}%`;
     E.fuelRow.classList.toggle('low', w.fuel < BOILER.warnAt);
-    const showClues = w.day >= 3 || m.clues.length > 0;
-    E.clues.classList.toggle('hidden', !showClues);
-    if (showClues) E.clues.textContent = `단서 ${m.clues.length}/4`;
+    const sid = specialOfDay(w.day);
+    const showClues = !!sid || m.clues.length > 0;
+    E.clues.classList.toggle('hidden', !sid);
+    if (sid) E.clues.textContent = `단서 ${specialClueCount(sid, m)}/${cluesOf(sid).length}`;
     E.btnJournal.classList.toggle('hidden', !showClues);
 
     const list = w.guests.filter(g => STATE_LABEL[g.state] && !(g.state === 'arriving' && g.special && !g.hosted));

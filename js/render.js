@@ -286,7 +286,7 @@ const Render = (() => {
       const cx = sx(o.x + o.w / 2, o.y + o.h / 2), cy = sy(o.x + o.w / 2, o.y + o.h / 2) - (z - 3);
       ctx.save();
       ctx.beginPath(); ctx.rect(cx - 50, cy - 100, 100, 100); ctx.clip();
-      drawChar(ctx, o.guest, cx, cy + (o.guest.type === 'kaonashi' ? 24 : 13), t, { bath: true });
+      drawChar(ctx, o.guest, cx, cy + guestBathY(o.guest), t, { bath: true });
       ctx.restore();
       ctx.strokeStyle = 'rgba(255,255,255,0.45)';
       ctx.beginPath(); ctx.ellipse(cx, cy, 15 + Math.sin(t * 3) * 1.5, 4.5, 0, 0, Math.PI * 2); ctx.stroke();
@@ -431,7 +431,14 @@ const Render = (() => {
   }
 
   /* ---------- 캐릭터 ---------- */
-  function chihiro(ctx, x, y, t, moving, faceDir, alpha = 1) {
+  function chihiro(ctx, x, y, t, moving, faceDir, alpha = 1, busy = false, walkDist = 0) {
+    const ca = Assets.imgs.chihiro;
+    if (ca && ca.def.sheet && ca.img.complete && ca.img.naturalWidth) {
+      ell(ctx, x, y, 12, 4.5, `rgba(0,0,0,${0.28 * alpha})`);
+      const anim = busy ? 'kneel' : moving ? 'walk' : 'idle';
+      Assets.drawAnim(ctx, 'chihiro', anim, anim === 'walk' ? walkDist : t, x, y, faceDir < 0, alpha);
+      return;
+    }
     if (Assets.draw(ctx, 'chihiro', x, y, faceDir < 0, alpha)) return;
     ctx.save();
     ctx.translate(x, y);
@@ -467,6 +474,7 @@ const Render = (() => {
 
   function spirit(ctx, type, x, y, t, o = {}) {
     const f = o.face || 1, alpha = o.alpha ?? 1;
+    if (specialSprite(ctx, type, x, y, t, alpha, o)) return;   // 스프라이트 시트가 있으면 그것으로
     if (Assets.draw(ctx, type, x, y, f < 0, alpha)) return;
     ctx.save();
     ctx.translate(x, y);
@@ -663,8 +671,8 @@ const Render = (() => {
     ctx.restore();
   }
 
-  function kaonashi(ctx, x, y, t, alpha = 1) {
-    if (Assets.draw(ctx, 'kaonashi', x, y, false, alpha)) return;
+  function kaonashi(ctx, x, y, t, alpha = 1, o = {}) {
+    if (specialSprite(ctx, 'kaonashi', x, y, t, alpha, o)) return;
     ctx.save();
     ctx.translate(x, y);
     ctx.globalAlpha *= alpha;
@@ -686,10 +694,185 @@ const Render = (() => {
     ctx.restore();
   }
 
+  /* ---------- 특별한 손님 (오리지널 디자인) ---------- */
+  /* 특별한 손님 스프라이트 시트(ASSET_MANIFEST에 sheet로 등록된 것)가 있으면 그것으로 그린다 */
+  function spriteReady(key) {
+    const a = Assets.imgs[key];
+    return a && a.def.sheet && a.img.complete && a.img.naturalWidth ? a : null;
+  }
+  function specialSprite(ctx, type, x, y, t, alpha, o) {
+    const key = type, a = spriteReady(key);
+    if (!a) return false;
+    const d = a.def;
+    if (!o.bath) ell(ctx, x, y, d.sheet.fw * d.scale * 0.3, 5, `rgba(0,0,0,${0.25 * alpha})`);
+    const anim = o.bath ? (o.off ? 'bathOff' : 'bath') : o.moving ? 'walk' : 'idle';
+    if (d.float && !o.bath) y -= d.float + Math.sin(t * 2.2 + (o.seed || 0)) * 1.5;   // 떠 있는 손님
+    // 손님마다 애니메이션이 같은 박자로 움직이지 않도록 seed 만큼 어긋나게
+    return Assets.drawAnim(ctx, key, anim, t + (o.seed || 0) * 0.37, x, y, (o.face || 1) < 0, alpha);
+  }
+  // 탕 속에 잠기는 깊이: 스프라이트가 있으면 시트의 bathY, 없으면 도형 기준값 (일반 손님 도형은 13)
+  function guestBathY(g) {
+    const a = spriteReady(g.type), sp = !!SPECIALS[g.type];
+    const d = a ? a.def.bathY * (a.def.sheet.anims.bath.scale || 1) : sp ? SPECIALS[g.type].bathY : 13;
+    return sp ? d * SG_WORLD : d;
+  }
+  /* 아직 방문하지 않은 손님(단서 그림자 · 검은 그림자): 모습을 어두운 실루엣으로 바꾸고 흐리게 그린다 */
+  let silCan = null;
+  function silhouetteGuest(ctx, type, x, y, t, alpha = 1, o = {}) {
+    if (!silCan) { silCan = document.createElement('canvas'); silCan.width = 240; silCan.height = 220; }
+    const c = silCan.getContext('2d'), FY = silCan.height - 24;
+    c.clearRect(0, 0, silCan.width, silCan.height);
+    specialGuest(c, type, silCan.width / 2, FY, t, 1, o);
+    c.save();
+    c.globalCompositeOperation = 'source-in';
+    c.fillStyle = '#1c1426'; c.fillRect(0, 0, silCan.width, silCan.height);
+    c.restore();
+    ctx.save();
+    ctx.globalAlpha *= alpha;
+    ctx.filter = 'blur(2.5px)';
+    ctx.drawImage(silCan, x - silCan.width / 2, y - FY);
+    ctx.restore();
+  }
+  /* 게임 화면에서 특별한 손님을 그리는 크기 배율 (초상화는 o.portrait 로 원래 크기) */
+  const SG_WORLD = 0.85;
+  function specialGuest(ctx, type, x, y, t, alpha = 1, o = {}) {
+    if (!o.portrait && SG_WORLD !== 1) {
+      ctx.save(); ctx.translate(x, y); ctx.scale(SG_WORLD, SG_WORLD);
+      specialGuest(ctx, type, 0, 0, t, alpha, { ...o, portrait: true });
+      ctx.restore();
+      return;
+    }
+    if (type === 'kaonashi') return kaonashi(ctx, x, y, t, alpha, o);
+    if (specialSprite(ctx, type, x, y, t, alpha, o)) return;
+    if (Assets.draw(ctx, type, x, y, (o.face || 1) < 0, alpha)) return;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.globalAlpha *= alpha;
+    if (!o.bath) ell(ctx, 0, 0, type === 'imugi' ? 16 : 13, 5, 'rgba(0,0,0,0.25)');
+    ctx.scale(o.face || 1, 1);
+    const bob = Math.sin(t * 2 + 1.3) * 0.9;
+    switch (type) {
+      case 'riverGod': { // 물로 된 몸, 갈대 관, 곁을 도는 작은 물고기
+        ctx.translate(0, -bob);
+        ctx.fillStyle = '#4f97b8';
+        ctx.beginPath(); ctx.moveTo(-15, -2); ctx.quadraticCurveTo(-17, -40, -9, -52); ctx.lineTo(9, -52); ctx.quadraticCurveTo(17, -40, 15, -2);
+        ctx.quadraticCurveTo(10, 1, 5, -2); ctx.quadraticCurveTo(0, 1, -5, -2); ctx.quadraticCurveTo(-10, 1, -15, -2); ctx.fill();
+        ctx.strokeStyle = 'rgba(210,240,250,0.55)'; ctx.lineWidth = 1.4;
+        for (const yy of [-14, -24, -34]) {
+          ctx.beginPath(); ctx.moveTo(-13, yy);
+          for (let k = -13; k < 13; k += 6.5) ctx.quadraticCurveTo(k + 3.2, yy - 2.5, k + 6.5, yy);
+          ctx.stroke();
+        }
+        circle(ctx, 0, -58, 10.5, '#9fd3e6');
+        ell(ctx, -3, -61, 4, 3, 'rgba(255,255,255,0.45)');
+        ctx.strokeStyle = '#1d3b4a'; ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.arc(-3.5, -57.5, 2.2, 0.2, Math.PI - 0.2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(4.5, -57.5, 2.2, 0.2, Math.PI - 0.2); ctx.stroke();
+        ell(ctx, 0.5, -51, 6, 3.2, '#e8f6fa'); // 물거품 수염
+        ctx.strokeStyle = '#5f8f3a'; ctx.lineWidth = 2.2; ctx.lineCap = 'round';
+        for (const [dx, h] of [[-7, 12], [-2.5, 16], [2.5, 14], [7, 11]]) {
+          ctx.beginPath(); ctx.moveTo(dx, -66); ctx.quadraticCurveTo(dx + 1.5, -66 - h * 0.6, dx + (dx < 0 ? -1.5 : 1.5), -66 - h); ctx.stroke();
+        }
+        ctx.lineCap = 'butt';
+        ell(ctx, -1, -66.5, 9, 2.4, '#7aa64a');
+        const fa = t * 1.6;
+        ell(ctx, Math.cos(fa) * 20, -30 + Math.sin(fa) * 6, 4.5, 2.2, '#f08a4b', Math.cos(fa) > 0 ? 0.3 : -0.3);
+        ell(ctx, Math.cos(fa + 3.1) * 18, -40 + Math.sin(fa + 3.1) * 5, 3.5, 1.8, '#f4c04f');
+        break;
+      }
+      case 'spiderElder': { // 동그란 거미 정령: 여덟 다리, 흰 눈썹, 동그란 안경, 작은 밀짚모자, 실타래
+        ctx.translate(0, -bob * 0.6);
+        ctx.strokeStyle = '#3e2a22'; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
+        for (let k = 0; k < 4; k++) {
+          const ly = -20 + k * 4.5, sw = Math.sin(t * 5 + k) * 1.2;
+          for (const sd of [-1, 1]) {
+            ctx.beginPath(); ctx.moveTo(sd * 10, ly); ctx.quadraticCurveTo(sd * (20 + k), ly - 9 + sw, sd * (24 + k * 1.5), -1 + k * 0.5); ctx.stroke();
+          }
+        }
+        ctx.lineCap = 'butt';
+        ell(ctx, 0, -17, 14, 12, '#6b4a3a');
+        for (let k = 0; k < 9; k++) ell(ctx, -10 + hash(k, 3) * 20, -24 + hash(3, k) * 14, 2.2, 1.2, 'rgba(160,120,90,0.5)', hash(k, k) * 3);
+        circle(ctx, 0, -32, 9, '#7b5644');
+        ctx.strokeStyle = '#2a1a14'; ctx.lineWidth = 1.1;
+        ctx.beginPath(); ctx.arc(-3.5, -32, 3, 0, Math.PI * 2); ctx.arc(3.5, -32, 3, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-0.6, -32); ctx.lineTo(0.6, -32); ctx.stroke();
+        circle(ctx, -3.5, -32, 1.1, '#1b1512'); circle(ctx, 3.5, -32, 1.1, '#1b1512');
+        ell(ctx, -4, -36.5, 3.5, 1.6, '#f4f0e6', -0.2); ell(ctx, 4, -36.5, 3.5, 1.6, '#f4f0e6', 0.2);
+        ell(ctx, 0, -26.5, 4, 2, '#f4f0e6');
+        ell(ctx, 0, -40, 10, 2.6, '#d9b25e'); ell(ctx, 0, -42.5, 5.5, 3.2, '#e6c474'); ctx.fillStyle = '#b3322a'; ctx.fillRect(-5.5, -41.5, 11, 1.4);
+        circle(ctx, 9, -10, 4, '#f2eee4');
+        ctx.strokeStyle = '#cfc8b8'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.arc(9, -10, 2.5, 0, 5); ctx.stroke();
+        break;
+      }
+      case 'sansin': { // 흰 머리 할머니(흰 치마·옥색 저고리), 지팡이와 호리병, 곁의 새끼 호랑이
+        ctx.translate(0, -bob);
+        ctx.fillStyle = '#e9e4d6';
+        ctx.beginPath(); ctx.moveTo(-6, -40); ctx.quadraticCurveTo(-10, -20, -14, -1); ctx.lineTo(14, -1); ctx.quadraticCurveTo(10, -20, 6, -40); ctx.fill();
+        ctx.fillStyle = '#f7f3ea'; ctx.beginPath(); ctx.moveTo(-14, -1); ctx.quadraticCurveTo(0, 2, 14, -1); ctx.lineTo(14, -4); ctx.quadraticCurveTo(0, -1, -14, -4); ctx.fill();
+        rrect(ctx, -10, -50, 20, 12, 5, '#8fbfa6');
+        ctx.fillStyle = '#b5413a'; ctx.beginPath(); ctx.moveTo(-1, -44); ctx.lineTo(4, -32); ctx.lineTo(1, -32); ctx.lineTo(-2, -42); ctx.fill();
+        ctx.fillStyle = '#eceae4';
+        ctx.beginPath(); ctx.moveTo(-9, -60); ctx.quadraticCurveTo(-18, -40, -12, -24); ctx.lineTo(-6, -44); ctx.fill();
+        circle(ctx, 0, -59, 9, '#f2d6bd');
+        ell(ctx, 0, -66, 10, 5, '#f1efe9');
+        circle(ctx, 0, -71, 4, '#f1efe9');
+        ctx.fillStyle = '#c9a24a'; ctx.fillRect(-1.2, -74, 2.4, 6);
+        ctx.strokeStyle = '#4a3226'; ctx.lineWidth = 1.3;
+        ctx.beginPath(); ctx.arc(-3.3, -59, 1.8, 0.2, Math.PI - 0.2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(3.3, -59, 1.8, 0.2, Math.PI - 0.2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(0, -55.5, 2, 0.3, Math.PI - 0.3); ctx.stroke();
+        ell(ctx, -6, -55.5, 1.8, 1, 'rgba(230,120,110,0.5)'); ell(ctx, 6, -55.5, 1.8, 1, 'rgba(230,120,110,0.5)');
+        ctx.strokeStyle = '#6b4a2e'; ctx.lineWidth = 2.4;
+        ctx.beginPath(); ctx.moveTo(13, 0); ctx.quadraticCurveTo(15, -30, 12, -62); ctx.stroke();
+        ell(ctx, 12, -64, 3.2, 2.4, '#6b4a2e');
+        ell(ctx, 15.5, -48, 3, 3.6, '#d9a441'); ell(ctx, 15.5, -53, 2, 2.2, '#d9a441');
+        // 새끼 호랑이
+        ctx.save(); ctx.translate(-19, 0);
+        ell(ctx, 0, -6, 7.5, 5.5, '#e8923a');
+        circle(ctx, 4.5, -12, 5.2, '#ee9c42');
+        tri(ctx, 1.2, -15.5, 2.5, -19.5, 4.5, -16.5, '#ee9c42'); tri(ctx, 5.5, -16.5, 7.5, -19.5, 8.5, -15, '#ee9c42');
+        ctx.strokeStyle = '#3a2418'; ctx.lineWidth = 1.2;
+        for (const dx of [-4, -1, 2]) { ctx.beginPath(); ctx.moveTo(dx, -11); ctx.lineTo(dx + 1, -7); ctx.stroke(); }
+        ell(ctx, 5.5, -10, 2.6, 1.8, '#fbf1e2');
+        circle(ctx, 3.3, -13, 0.9, '#1b1512'); circle(ctx, 6.6, -13, 0.9, '#1b1512');
+        ctx.strokeStyle = '#e8923a'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(-7, -6); ctx.quadraticCurveTo(-12, -10 + Math.sin(t * 4) * 2, -10, -15); ctx.stroke();
+        ctx.lineCap = 'butt';
+        ctx.restore();
+        break;
+      }
+      case 'imugi': { // 구름 수염을 단 이무기: 똬리 튼 몸, 작은 뿔 돌기, 빛나는 구슬
+        ctx.translate(0, -bob);
+        const body = '#6f88aa', belly = '#dbe4ec';
+        ell(ctx, 0, -6, 17, 7, body); ell(ctx, 0, -4, 12, 3.5, belly);
+        ell(ctx, 1, -15, 14, 6.5, body); ell(ctx, 1, -13.5, 9.5, 3, belly);
+        ell(ctx, -1, -24, 11, 6, body);
+        ctx.strokeStyle = body; ctx.lineWidth = 8; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(-4, -26); ctx.quadraticCurveTo(-8, -38, 0, -42); ctx.stroke();
+        ctx.lineCap = 'butt';
+        ell(ctx, 4, -44, 9, 7, '#7a93b4');
+        ell(ctx, 10, -42.5, 5, 3.6, '#8aa2c0');
+        tri(ctx, 0, -49, 1.5, -54, 3.5, -49.5, '#e6e0cf'); tri(ctx, 5, -50, 7, -55, 8.5, -49.5, '#e6e0cf');
+        circle(ctx, 6, -45.5, 1.7, '#1b1512'); circle(ctx, 6.5, -46.2, 0.6, '#fff');
+        ell(ctx, 3, -42, 1.8, 1, 'rgba(240,150,160,0.55)');
+        ctx.strokeStyle = '#eef3f7'; ctx.lineWidth = 1.1;
+        const wv = Math.sin(t * 2.2) * 2;
+        ctx.beginPath(); ctx.moveTo(13, -42); ctx.quadraticCurveTo(20, -44 + wv, 24, -38); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(13, -41); ctx.quadraticCurveTo(18, -36 - wv, 22, -31); ctx.stroke();
+        for (const [cx, cy] of [[24, -38], [22, -31]]) { circle(ctx, cx, cy, 2.6, '#f7f9fb'); circle(ctx, cx + 2.2, cy + 0.6, 2, '#f7f9fb'); }
+        const pg = 0.6 + Math.sin(t * 3) * 0.2;
+        circle(ctx, -13, -18, 6.5, `rgba(250,230,160,${0.25 * pg})`);
+        circle(ctx, -13, -18, 3.6, '#f6e2a0'); circle(ctx, -14, -19.2, 1.3, '#fffbe8');
+        break;
+      }
+    }
+    ctx.restore();
+  }
+
   function drawChar(ctx, g, x, y, t, opt = {}) {
     const alpha = (g.alpha ?? 1) * (opt.alpha ?? 1);
-    if (g.type === 'kaonashi') return kaonashi(ctx, x, y, t, alpha);
-    spirit(ctx, g.type, x, y, t, { face: g.face || 1, moving: g.moving, alpha, bath: opt.bath, seed: g.id || 0 });
+    if (SPECIALS[g.type]) return specialGuest(ctx, g.type, x, y, t, alpha, { face: g.face || 1, bath: opt.bath, moving: g.moving, off: g.offNow, seed: g.id || 0 });
+    spirit(ctx, g.type, x, y, t, { face: g.face || 1, moving: g.moving, alpha, bath: opt.bath, off: g.offNow, seed: g.id || 0 });
   }
 
   /* ---------- 단서 아이템 ---------- */
@@ -717,6 +900,30 @@ const Render = (() => {
     } else if (icon === 'gold') {
       ell(ctx, x, y - 1, 9, 4, 'rgba(90,60,30,0.6)');
       ell(ctx, x - 3, y - 3, 4.5, 3, '#e3b53a'); ell(ctx, x + 3, y - 2, 3.5, 2.5, '#c9962a'); ell(ctx, x, y - 5, 3, 2.2, '#f4cf55');
+    } else if (icon === 'reed') {
+      ctx.strokeStyle = '#6f9a3e'; ctx.lineWidth = 1.6;
+      for (const d of [-3, 0, 3]) { ctx.beginPath(); ctx.moveTo(x + d, y); ctx.quadraticCurveTo(x + d * 1.4, y - 9, x + d * 2, y - 14); ctx.stroke(); }
+      ell(ctx, x - 6, y - 14, 1.6, 3, '#8a6a3a'); ell(ctx, x + 6, y - 14, 1.6, 3, '#8a6a3a');
+    } else if (icon === 'scale' || icon === 'cloud') {
+      ell(ctx, x, y - 3, 6, 4, icon === 'cloud' ? 'rgba(236,242,248,0.9)' : '#bcd7e6', -0.3);
+      ell(ctx, x - 1.5, y - 4.2, 2.6, 1.6, 'rgba(255,255,255,0.7)', -0.3);
+    } else if (icon === 'print') {
+      for (const [dx, dy] of [[-5, 1], [0, -3], [5, 1]]) { ell(ctx, x + dx, y + dy, 2.6, 1.6, 'rgba(90,150,190,0.65)'); }
+    } else if (icon === 'thread' || icon === 'spool') {
+      if (icon === 'spool') { ell(ctx, x, y - 3, 4.5, 3.5, '#f2eee4'); ctx.fillStyle = '#9a7a52'; ctx.fillRect(x - 5, y - 1, 10, 1.6); }
+      ctx.strokeStyle = 'rgba(245,245,255,0.85)'; ctx.lineWidth = 0.9;
+      ctx.beginPath(); for (let k = 0; k < 3; k++) ctx.arc(x, y - 3, 3 + k * 2.4, 0, Math.PI * 2); ctx.stroke();
+    } else if (icon === 'wrapper') {
+      for (const [dx, col] of [[-4, '#e0a03a'], [2, '#c9662f'], [5, '#e8c45a']]) { ctx.fillStyle = col; ctx.save(); ctx.translate(x + dx, y - 2); ctx.rotate(dx * 0.2); ctx.fillRect(-2.5, -1.5, 5, 3); ctx.restore(); }
+    } else if (icon === 'pinecone') {
+      for (const dx of [-5, 0, 5]) { ell(ctx, x + dx, y - 3, 2.6, 3.6, '#8a5a2e'); ell(ctx, x + dx, y - 4, 1.6, 1, '#b07a44'); }
+    } else if (icon === 'fur') {
+      ell(ctx, x, y - 3, 6, 3.6, '#e8923a');
+      ctx.strokeStyle = '#3a2418'; ctx.lineWidth = 1;
+      for (const d of [-3, 0, 3]) { ctx.beginPath(); ctx.moveTo(x + d, y - 6); ctx.lineTo(x + d + 1, y - 0.5); ctx.stroke(); }
+    } else if (icon === 'mint') {
+      ell(ctx, x, y - 5, 9, 4, 'rgba(220,245,235,0.55)');
+      ell(ctx, x - 3, y - 2, 3, 1.8, '#5fb37a', 0.5); ell(ctx, x + 3, y - 2.5, 3, 1.8, '#4fa06a', -0.5);
     } else if (icon === 'note') {
       ctx.fillStyle = '#f3ead6'; poly(ctx, rectPts(c.x - 0.2, c.y - 0.15, 0.4, 0.3, 1)); ctx.fill();
       ctx.strokeStyle = 'rgba(60,40,30,0.6)';
@@ -751,7 +958,7 @@ const Render = (() => {
   }
   function guestOverlay(ctx, g, t) {
     const x = sx(g.x, g.y);
-    const top = sy(g.x, g.y) - (g.type === 'kaonashi' ? 76 : 50);
+    const top = sy(g.x, g.y) - (SPECIALS[g.type] ? SPECIALS[g.type].h * SG_WORLD : 50);
     if (g.state === 'waiting' || g.state === 'kWait') {
       if (g.state === 'kWait' || !g.known) {
         const pul = 1 + Math.sin(t * 6) * 0.1;
@@ -788,7 +995,7 @@ const Render = (() => {
       rrect(ctx, cx - 30, y - 10, 60, 20, 10, 'rgba(90,60,30,0.85)');
       text(ctx, '청소 필요', cx, y, 11, '#f7e7c8', { bold: true });
     } else if (o.state === 'occupied' && o.guest && o.guest.state === 'bathing') {
-      const y = cyBase - (o.guest.type === 'kaonashi' ? 82 : 60);
+      const y = cyBase - (SPECIALS[o.guest.type] ? SPECIALS[o.guest.type].h * SG_WORLD + 6 : 60);
       const r = 1 - o.guest.bathT / (o.guest.bathMax || BATH_TIME);
       circle(ctx, cx, y, 9, 'rgba(28,18,28,0.75)');
       ctx.strokeStyle = '#f2c96a'; ctx.lineWidth = 3;
@@ -900,7 +1107,7 @@ const Render = (() => {
     }
     for (const c of w.clueItems) {
       if (c.collected || (c.scene || 'main') !== sid) continue;
-      if (CLUES[c.id].npc) list.push({ k: c.x + c.y, f: () => kaonashi(ctx, sx(c.x, c.y), sy(c.x, c.y), t, 0.72 * c.alpha) });
+      if (CLUES[c.id].npc) list.push({ k: c.x + c.y, f: () => silhouetteGuest(ctx, CLUES[c.id].guest, sx(c.x, c.y), sy(c.x, c.y), t, 0.8 * c.alpha, { face: -1 }) });
       else list.push({ k: c.x + c.y, f: () => clueItem(ctx, c, t) });
     }
     if (inMain) {
@@ -911,9 +1118,9 @@ const Render = (() => {
     }
     if (w.ghost && w.ghost.alpha > 0.01 && (w.ghost.scene || 'main') === sid) {
       const gh = w.ghost;
-      list.push({ k: gh.x + gh.y, f: () => kaonashi(ctx, sx(gh.x, gh.y), sy(gh.x, gh.y), t, gh.alpha) });
+      list.push({ k: gh.x + gh.y, f: () => silhouetteGuest(ctx, 'kaonashi', sx(gh.x, gh.y), sy(gh.x, gh.y), t, gh.alpha) });
     }
-    if (showPlayer) list.push({ k: pk, f: () => chihiro(ctx, psx, psy, p.t, p.moving, p.face) });
+    if (showPlayer) list.push({ k: pk, f: () => chihiro(ctx, psx, psy, p.t, p.moving, p.face, 1, p.busy > 0, p.walkDist || 0) });
     list.sort((a, b) => a.k - b.k);
     for (const d of list) d.f();
 
@@ -951,15 +1158,30 @@ const Render = (() => {
   }
 
   /* ---------- 초상화 · 엔딩 일러스트 ---------- */
-  function portrait(canvas, kind) {
+  function portrait(canvas, kind, opt = {}) {
     const c = canvas.getContext('2d');
     const W = canvas.width, H = canvas.height;
     const s = W / 120; // 캔버스 내부 해상도 대비 배율
     c.clearRect(0, 0, W, H);
     c.save();
-    if (kind === 'kaonashi') {
-      c.translate(W / 2, H * 1.02); c.scale(1.7 * s, 1.7 * s);
-      kaonashi(c, 0, 0, 1, 1);
+    c.imageSmoothingQuality = 'high';
+    const hd = kind === 'chihiro' && Assets.imgs.chihiro_portrait;
+    const sp = kind && (SPECIALS[kind] || GUEST_TYPES[kind]) && spriteReady(kind);
+    if (sp) {
+      // 시트 칸을 가운데에 놓고, 키와 너비 중 빡빡한 쪽에 맞춰 크기를 정한다
+      const d = sp.def, cw = d.sheet.fw * d.scale;
+      const f = Math.min(78 / (SPECIALS[kind] ? SPECIALS[kind].h : d.h || 50), 104 / (cw * 0.86));
+      c.translate(W / 2 + (d.ax - 0.5) * cw * f * s, H * 0.96); c.scale(f * s, f * s);
+      specialSprite(c, kind, 0, 0, 0.6, 1, {});
+    } else if (kind && SPECIALS[kind]) {
+      const k = 60 / Math.max(48, SPECIALS[kind].h + 4);
+      c.translate(W / 2, H * 1.0); c.scale(1.9 * k * s, 1.9 * k * s);
+      specialGuest(c, kind, 0, 0, 1, 1, { portrait: true });
+    } else if (hd && hd.img.complete && hd.img.naturalWidth) {
+      // 주인공: 게임용 축소 시트를 키우면 흐려지므로 원본 해상도 프레임을 거의 1:1로 그린다
+      const im = hd.img, f = (H * 0.92) / im.naturalHeight;
+      const w = im.naturalWidth * f, h = im.naturalHeight * f;
+      c.drawImage(im, W * 0.5 - w * 0.6, H * 0.98 - h, w, h);
     } else if (kind === 'chihiro') {
       c.translate(W / 2, H * 0.98); c.scale(2.4 * s, 2.4 * s);
       chihiro(c, 0, 0, 1, false, 1);
@@ -971,6 +1193,20 @@ const Render = (() => {
       text(c, '湯', 0, 0, 44 * s, '#e8c36a', { serif: true, bold: true });
     }
     c.restore();
+    if (opt.silhouette) {
+      // 아직 만나지 못한 손님: 그린 모습을 어두운 그림자로 덮고 물음표만 남긴다
+      c.save();
+      c.globalCompositeOperation = 'source-in';
+      c.fillStyle = '#3b3046'; c.fillRect(0, 0, W, H);
+      c.restore();
+      // 윤곽도 또렷하지 않게 흐린다
+      const tmp = document.createElement('canvas');
+      tmp.width = W; tmp.height = H;
+      tmp.getContext('2d').drawImage(canvas, 0, 0);
+      c.clearRect(0, 0, W, H);
+      c.save(); c.filter = `blur(${3 * s}px)`; c.drawImage(tmp, 0, 0); c.restore();
+      text(c, '?', W / 2, H * 0.55, 34 * s, 'rgba(255,240,215,0.85)', { serif: true, bold: true });
+    }
   }
   function endingArt(canvas, type) {
     const c = canvas.getContext('2d');

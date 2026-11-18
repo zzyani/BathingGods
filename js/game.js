@@ -19,7 +19,7 @@ const ALBUM_KEY = 'gods-bathhouse-album-v1'; // 엔딩 앨범 (새로 시작해�
 
 /* ---------- 저장 ---------- */
 function newMeta() {
-  return { day: 1, coins: 0, score: 0, stars: [], served: 0, missed: 0, upgrades: [], clues: [], kChoice: null, kResult: null };
+  return { day: 1, coins: 0, score: 0, stars: [], served: 0, missed: 0, upgrades: [], clues: [], kChoice: null, kResult: null, specials: {} };
 }
 function saveMeta() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(Game.meta)); } catch (e) { /* 저장 불가 환경 */ } }
 function loadSave() { try { const s = localStorage.getItem(SAVE_KEY); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
@@ -56,7 +56,38 @@ function recordEnding(type, rank, m) {
 function openAlbum(back) { UI.album(loadAlbum(), back); }
 
 function hasUp(id) { return !!(Game.meta && Game.meta.upgrades.includes(id)); }
-function invCap() { return hasUp('basket') ? 5 : 3; }
+function invCap() { return (hasUp('basket') ? 5 : 3) + (hasGift('basket') ? 1 : 0); }
+
+/* ---------- 특별한 손님 진행 ---------- */
+function isSpecial(type) { return !!SPECIALS[type]; }
+function specialRec(id) {
+  const m = Game.meta;
+  if (!m.specials) m.specials = {};
+  return m.specials[id] || (m.specials[id] = { choice: null, result: null });
+}
+function specialClueCount(id, m = Game.meta) { return cluesOf(id).filter(k => m.clues.includes(k)).length; }
+function specialMet(id, m = Game.meta) { return !!(m.specials && m.specials[id] && m.specials[id].met); }
+function specialLabel(id, m = Game.meta) { return specialMet(id, m) ? SPECIALS[id].name : SPECIALS[id].alias; }
+// 특별한 손님이 남긴 선물 효과 (id: cool | basket | patience | fuel)
+function hasGift(gid) {
+  const m = Game.meta;
+  if (!m || !m.specials) return false;
+  return SPECIAL_ORDER.some(s => SPECIALS[s].gift && SPECIALS[s].gift.id === gid && m.specials[s] && m.specials[s].result === 'healed');
+}
+function giftsOf(m = Game.meta) {
+  return SPECIAL_ORDER.filter(s => SPECIALS[s].gift && m.specials && m.specials[s] && m.specials[s].result === 'healed').map(s => SPECIALS[s].gift);
+}
+function healedCount(m = Game.meta) { return SPECIAL_ORDER.filter(s => m.specials && m.specials[s] && m.specials[s].result === 'healed').length; }
+function setSpecialChoice(id, choice) {
+  const r = specialRec(id);
+  if (!r.choice) r.choice = choice;
+  if (id === 'kaonashi' && !Game.meta.kChoice) Game.meta.kChoice = choice;
+}
+// 오늘 방문하기로 한 특별한 손님을 만나지 못하고 하루가 끝난 경우
+function settleMissedSpecial() {
+  const w = Game.world;
+  if (w.cfg.special && !w.sEventDone) setSpecialChoice(w.cfg.special, 'none');
+}
 
 /* ---------- 부팅 ---------- */
 window.addEventListener('load', init);
@@ -153,7 +184,7 @@ function closeBusiness() {
   w.endTimer = -1;
   for (const g of w.guests) {
     if (g.special) {
-      if (g.state === 'kWait') { if (!m.kChoice) m.kChoice = 'none'; kaoLeave(g); }
+      if (g.state === 'kWait') { setSpecialChoice(g.type, 'none'); kaoLeave(g); }
       else if (g.state === 'waiting' || g.state === 'arriving') kaoLeave(g);
       else if (g.state === 'following') { g.noPatience = false; g.patience = g.patienceMax = 30; }
       continue;
@@ -167,7 +198,7 @@ function closeBusiness() {
       w.stats.log.push({ name: guestName(g), stars: 0, note: '영업 시간이 끝나 돌아감' });
     }
   }
-  if (w.cfg.kaonashiAt && !w.kEventDone && !m.kChoice) m.kChoice = 'none';
+  settleMissedSpecial();
   Sfx.play('bell');
   const left = w.guests.some(g => ['following', 'toTub', 'bathing'].includes(g.state));
   UI.toast(left ? '영업 시간이 끝났어요! 새 손님은 받지 않고, 안내·목욕 중인 손님만 마무리합니다.' : '영업 시간이 끝났어요!', 'warn');
@@ -179,7 +210,7 @@ function endDay() {
   for (const g of w.guests.slice()) {
     if (g.state === 'bathing' || g.state === 'toTub') { finishBath(g, true); continue; }
     if (g.special) {
-      if (g.state === 'kWait' && !m.kChoice) m.kChoice = 'none';
+      if (g.state === 'kWait') setSpecialChoice(g.type, 'none');
       continue;
     }
     if (['arriving', 'waiting', 'following'].includes(g.state)) {
@@ -188,7 +219,7 @@ function endDay() {
       w.stats.log.push({ name: guestName(g), stars: 0, note: '영업 시간이 끝나 돌아감' });
     }
   }
-  if (w.cfg.kaonashiAt && !w.kEventDone && !m.kChoice) m.kChoice = 'none';
+  settleMissedSpecial();
   w.ended = true;
   UI.closeModal();
   UI.showHUD(false);
@@ -197,7 +228,7 @@ function endDay() {
 }
 function afterDayEnd() {
   const day = Game.world.day;
-  if (day < 5) UI.shop(Game.meta, () => startDay(day + 1));
+  if (day < DAYS.length) UI.shop(Game.meta, () => startDay(day + 1));
   else showEnding();
 }
 function buyUpgrade(id) {
@@ -244,7 +275,7 @@ function buildWorld(day, demo) {
     day, cfg, demo: !!demo, time: 0, length: cfg.length, ended: false, closed: false, endTimer: -1,
     objects: [], tubs: [], guests: [], gid: 0, schedule: [], clueItems: [],
     player: { x: PLAYER_START.x, y: PLAYER_START.y, face: 1, moving: false, t: 0, path: null, target: null, repath: 0, stuck: 0, busy: 0, busyTotal: 1, busyLabel: '', busyDone: null },
-    inventory: [], effects: [], floats: [], follower: null, kaonashi: null, kEventDone: false, ghost: null, heatSfx: 0,
+    inventory: [], effects: [], floats: [], follower: null, special: null, sEventDone: false, ghost: null, heatSfx: 0,
     fuel: BOILER.maxFuel, fuelWarned: false,
     stats: { served: 0, missed: 0, stars: [], coins: 0, score: 0, log: [] },
     scene: 'main', trans: null,
@@ -336,11 +367,11 @@ function interactables() {
   const w = Game.world, list = [];
   const inMain = w.scene === 'main';
   for (const g of w.guests) {
-    if (inMain && ['waiting', 'following', 'kWait'].includes(g.state)) list.push({ type: 'guest', char: true, tall: g.type === 'kaonashi', ref: g, label: guestName(g) });
+    if (inMain && ['waiting', 'following', 'kWait'].includes(g.state)) list.push({ type: 'guest', char: true, tall: !!g.special, ref: g, label: guestName(g) });
   }
   for (const c of w.clueItems) {
     if (c.collected || c.fading || c.scene !== w.scene) continue;
-    if (CLUES[c.id].npc) list.push({ type: 'shadow', char: true, tall: true, ref: c, label: '검은 그림자' });
+    if (CLUES[c.id].npc) list.push({ type: 'shadow', char: true, tall: true, ref: c, label: specialLabel(CLUES[c.id].guest) });
     else list.push({ type: 'clue', ref: c, rect: { x: c.x - 0.45, y: c.y - 0.45, w: 0.9, h: 0.9 }, pickH: 24, label: '반짝이는 무언가' });
   }
   for (const o of w.objects) {
@@ -487,7 +518,7 @@ function companyNotes(tub, type) {
   const out = [];
   for (const n of neighborTubs(tub)) {
     const other = n.guest;
-    if (!other || other.type === 'kaonashi' || n.state !== 'occupied') continue;
+    if (!other || other.special || n.state !== 'occupied') continue;
     const rel = relationOf(type, other.type);
     if (rel === 'dislike') out.push(`옆 탕 ${guestName(other)}: 사이 나쁨!`);
     else if (rel === 'like') out.push(`옆 탕 ${guestName(other)}: 사이 좋음♪`);
@@ -539,6 +570,7 @@ function updateTransition(dt) {
 function updatePlayer(dt) {
   const w = Game.world, p = w.player;
   p.t += dt;
+  if (!p.moving) p.walkDist = 0;   // 멈췄다 다시 걸으면 첫 보폭부터
   if (w.trans) { updateTransition(dt); p.moving = false; return; }
   if (p.busy > 0) {
     p.busy -= dt;
@@ -585,6 +617,7 @@ function updatePlayer(dt) {
   if (mx || my) {
     const moved = moveWithCollision(p, mx * speed * dt, my * speed * dt);
     p.moving = moved > 0.0005;
+    p.walkDist = p.moving ? (p.walkDist || 0) + moved : 0;   // 걷기 프레임은 걸은 거리로 넘김
     const sdx = mx - my;
     if (Math.abs(sdx) > 0.1) p.face = sdx > 0 ? 1 : -1;
     if (p.target) {
@@ -597,7 +630,7 @@ function updatePlayer(dt) {
 }
 
 /* ---------- 손님 ---------- */
-function guestName(g) { return g.type === 'kaonashi' ? '얼굴 없는 손님' : GUEST_TYPES[g.type].name; }
+function guestName(g) { return isSpecial(g.type) ? SPECIALS[g.type].name : GUEST_TYPES[g.type].name; }
 function requestLine(g) {
   const T = GUEST_TYPES[g.type];
   const h = HERBS[g.request.herbs[0]].name;
@@ -621,7 +654,7 @@ function spawnGuest(type) {
   const temp = Util.randInt(T.temp[0], T.temp[1]);
   const herbs = [T.alt && Math.random() < 0.4 ? Util.pick(T.alt) : T.herb];
   if (cfg.twoHerb && Math.random() < cfg.twoHerb) herbs.push(Util.pick(Object.keys(HERBS).filter(h => h !== herbs[0])));
-  const pm = T.patience * (hasUp('incense') ? 1.25 : 1);
+  const pm = T.patience * (hasUp('incense') ? 1.25 : 1) * (hasGift('patience') ? 1.15 : 1);
   const g = {
     id: ++w.gid, type, x: DOOR.x + 0.5, y: DOOR.y + 0.5, face: -1, alpha: 0, moving: false,
     state: 'arriving', request: { temp, herbs }, known: false,
@@ -690,7 +723,7 @@ function updateGuest(g, dt) {
 
 function onGuestClick(g) {
   const w = Game.world;
-  if (g.state === 'kWait') { kaonashiDialog(g); return; }
+  if (g.state === 'kWait') { specialDialog(g); return; }
   if (g.state === 'following') { sendBack(g); return; }
   if (g.state !== 'waiting') return;
   if (!g.known) {
@@ -751,7 +784,7 @@ function seatGuest(g, tub) {
 function startBath(g) {
   const tub = g.tub;
   g.state = 'bathing';
-  g.bathMax = g.special ? KAONASHI_BATH : (GUEST_TYPES[g.type].bath || BATH_TIME);
+  g.bathMax = g.special ? SPECIALS[g.type].bath : (GUEST_TYPES[g.type].bath || BATH_TIME);
   g.bathT = g.bathMax;
   g.x = tub.x + tub.w / 2;
   g.y = tub.y + tub.h / 2;
@@ -829,15 +862,24 @@ function finishBath(g, forced) {
   const res = rate(g, tub);
   const cx = tub.x + tub.w / 2, cy = tub.y + tub.h / 2;
   if (g.special) {
-    m.kResult = res.kaoOK ? 'healed' : 'failed';
+    const S = SPECIALS[g.type], r = specialRec(g.type);
+    r.result = res.kaoOK ? 'healed' : 'failed';
+    if (g.type === 'kaonashi') m.kResult = r.result;
     if (res.kaoOK) {
-      addFloat(cx, cy, '「……따뜻해. 고마워.」', '#f3d9ff', 16, 90, 3.2);
+      addFloat(cx, cy, S.thanks, '#f3d9ff', 16, 90, 3.2);
       Sfx.play('clue');
       for (let k = 0; k < 24; k++) {
         w.effects.push({ kind: 'spark', x: Iso.x(cx, cy), y: Iso.y(cx, cy) - 40, vx: Util.rand(-40, 40), vy: Util.rand(-60, -10), life: 1.5, max: 1.5 });
       }
+      if (S.reward) {
+        m.coins += S.reward; m.score += 100; w.stats.coins += S.reward; w.stats.score += 100;
+        addFloat(cx, cy, `+${S.reward}냥`, '#ffd36a', 15, 70, 2.6);
+      }
+      w.stats.log.push({ name: S.name, stars: 5, note: S.gift ? `특별한 손님 · 선물: ${S.gift.name}` : '특별한 손님 · 마음을 열었다' });
+      if (S.gift) UI.toast(`${S.name}의 선물 — ${S.gift.name}: ${S.gift.desc}`, 'kao');
     } else {
-      addFloat(cx, cy, '「……」', '#d0c0e0', 16, 90, 2.5);
+      addFloat(cx, cy, S.sad.split('」')[0] + (S.sad.includes('」') ? '」' : ''), '#d0c0e0', 16, 90, 2.5);
+      w.stats.log.push({ name: S.name, stars: 0, note: '특별한 손님 · 맞는 탕이 아니었다' });
       Sfx.play('bad');
     }
   } else {
@@ -933,7 +975,7 @@ function updateTubs(dt) {
   for (const o of w.tubs) {
     // 물을 받은 탕은 서서히 식는다 (데우는 중인 탕 제외)
     if ((o.state === 'ready' || o.state === 'occupied') && !(Game.heatOn && Game.tub === o) && !w.demo) {
-      o.temp = Math.max(TUB_MIN_TEMP, o.temp - TUB_COOL_RATE * dt);
+      o.temp = Math.max(TUB_MIN_TEMP, o.temp - TUB_COOL_RATE * (hasGift('cool') ? 0.7 : 1) * dt);
     }
     if ((o.state === 'ready' || o.state === 'occupied') && o.temp >= 39) {
       o.steam += dt * (o.temp - 37) * 0.9;
@@ -992,25 +1034,26 @@ function dropInventory(i) {
   if (h) { Sfx.play('drop'); UI.toast(`${Util.josa(HERBS[h].name, '을', '를')} 버렸어요`); }
 }
 
-/* ---------- 단서 · 얼굴 없는 손님 ---------- */
+/* ---------- 단서 · 특별한 손님 ---------- */
 function collectClue(c) {
   const m = Game.meta;
   c.collected = true;
   if (!m.clues.includes(c.id)) m.clues.push(c.id);
   Sfx.play('clue');
-  const def = CLUES[c.id];
+  const def = CLUES[c.id], sid = def.guest;
   UI.dialog({
-    portrait: def.npc ? 'kaonashi' : 'chihiro',
+    portrait: def.npc ? sid : 'chihiro', silhouette: def.npc && !specialMet(sid),
     name: `단서 발견 — ${def.name}`,
-    text: `${def.text}\n\n(단서 ${m.clues.length}/4 · J 키로 단서 수첩을 볼 수 있다)`,
+    text: `${def.text}\n\n(${specialLabel(sid)}의 단서 ${specialClueCount(sid)}/${cluesOf(sid).length} · J 키로 단서 수첩을 볼 수 있다)`,
     buttons: [{ label: '수첩에 적어 둔다', primary: true }],
   });
 }
 function onShadowClick(c) {
+  const def = CLUES[c.id];
   UI.dialog({
-    portrait: 'kaonashi', name: '검은 그림자',
-    text: '……\n(복도 끝의 검은 손님이 가만히 이쪽을 바라보고 있다.)',
-    buttons: [{ label: '저기… 괜찮으세요?', primary: true, onClick: () => { c.fading = true; Sfx.play('kao'); } }],
+    portrait: def.guest, name: specialLabel(def.guest), silhouette: !specialMet(def.guest),   // 방문 전에는 외형을 가린다
+    text: def.meet.text,
+    buttons: [{ label: def.meet.button, primary: true, onClick: () => { c.fading = true; Sfx.play('kao'); } }],
   });
 }
 function updateGhost(dt) {
@@ -1033,38 +1076,62 @@ function updateGhost(dt) {
     if (gh.life <= 0 || gh.scene !== w.scene || Util.dist(gh.x, gh.y, p.x, p.y) < 2.8) { gh.show = false; gh.timer = Util.rand(18, 30); }
   }
 }
-function spawnKaonashi() {
-  const w = Game.world;
+function spawnSpecial(id) {
+  const w = Game.world, S = SPECIALS[id];
   const g = {
-    id: ++w.gid, type: 'kaonashi', special: true, x: DOOR.x + 0.5, y: DOOR.y + 0.5, face: -1, alpha: 0, moving: false,
-    state: 'arriving', request: { ...KAONASHI_REQUEST, herbs: [...KAONASHI_REQUEST.herbs] }, known: false, hidden: true,
+    id: ++w.gid, type: id, special: true, x: DOOR.x + 0.5, y: DOOR.y + 0.5, face: -1, alpha: 0, moving: false,
+    state: 'arriving', request: { temp: S.request.temp, herbs: [...S.request.herbs] }, known: false, hidden: true,
     noPatience: true, patience: 1, patienceMax: 1, queueIdx: null, path: null, tub: null, bathT: 0, repath: 0,
   };
   g.path = npcPath(g.x, g.y, K_SPOT[0], K_SPOT[1]);
   w.guests.push(g);
-  w.kaonashi = g;
+  w.special = g;
+  specialRec(id).met = true;
   Sfx.play('kao');
-  UI.toast('…… 안개와 함께, 얼굴 없는 손님이 들어왔다.', 'kao');
+  UI.toast(S.arrive, 'kao');
+}
+function specialDialog(g) {
+  if (g.type === 'kaonashi') { kaonashiDialog(g); return; }
+  const S = SPECIALS[g.type], n = specialClueCount(g.type), total = cluesOf(g.type).length;
+  UI.dialog({
+    portrait: g.type, name: S.name,
+    text: S.greet,
+    buttons: [
+      {
+        label: '"어서 오세요. 마음에 드실 탕을 준비해 드릴게요."',
+        disabled: n < CLUES_NEEDED,
+        note: n < CLUES_NEEDED ? `무엇을 좋아하시는지 조금 더 알았다면… (단서 ${n}/${total}, ${CLUES_NEEDED}개 필요)` : '단서를 떠올려 손님에게 맞는 탕을 준비하자',
+        primary: n >= CLUES_NEEDED,
+        onClick: () => {
+          setSpecialChoice(g.type, 'host');
+          g.hosted = true; g.known = true; g.state = 'waiting';
+          Sfx.play('clue');
+          UI.toast(`${Util.josa(S.name, '을', '를')} 손님으로 맞이했다. 단서 수첩(J)을 떠올려 보자.`, 'kao');
+        },
+      },
+      { label: '"죄송해요, 오늘은 모실 수가 없어요."', onClick: () => { setSpecialChoice(g.type, 'refuse'); kaoLeave(g); } },
+    ],
+  });
 }
 function kaonashiDialog(g) {
-  const m = Game.meta, n = m.clues.length;
+  const m = Game.meta, n = specialClueCount('kaonashi'), total = cluesOf('kaonashi').length;
   UI.dialog({
     portrait: 'kaonashi', name: '얼굴 없는 손님',
     text: '「……아…… 아……」\n그는 말없이 두 손을 내민다. 손바닥 위에서 금덩이가 반짝인다.',
     buttons: [
       { label: '금을 받는다', onClick: () => {
-        m.kChoice = 'gold'; m.coins += 300;
+        setSpecialChoice('kaonashi', 'gold'); m.coins += 300;
         addFloat(g.x, g.y, '+300냥…?', '#f4cf55', 15, 80);
         kaoLeave(g);
       } },
-      { label: '정중히 거절한다', onClick: () => { m.kChoice = 'refuse'; kaoLeave(g); } },
+      { label: '정중히 거절한다', onClick: () => { setSpecialChoice('kaonashi', 'refuse'); kaoLeave(g); } },
       {
         label: '"금은 필요 없어요. 대신 따뜻한 탕을 준비해 드릴게요."',
         disabled: n < CLUES_NEEDED,
-        note: n < CLUES_NEEDED ? `그에 대해 조금 더 알았다면… (단서 ${n}/4, ${CLUES_NEEDED}개 필요)` : '단서를 떠올려 그에게 맞는 탕을 준비하자',
+        note: n < CLUES_NEEDED ? `그에 대해 조금 더 알았다면… (단서 ${n}/${total}, ${CLUES_NEEDED}개 필요)` : '단서를 떠올려 그에게 맞는 탕을 준비하자',
         primary: n >= CLUES_NEEDED,
         onClick: () => {
-          m.kChoice = 'host';
+          setSpecialChoice('kaonashi', 'host');
           g.hosted = true; g.known = true; g.state = 'waiting';
           Sfx.play('clue');
           UI.toast('그를 손님으로 맞이하기로 했다. 단서 수첩(J)을 떠올려 보자.', 'kao');
@@ -1087,7 +1154,7 @@ function awayAlerts() {
   if (w.closed) out.push({ text: '영업 종료 — 마감 정리 중', urgent: true });
   if (w.awayArrivals) out.push({ text: `새 손님 ${w.awayArrivals}명 도착`, urgent: false });
   for (const g of w.guests) {
-    if (g.state === 'kWait') out.push({ text: '접수대 옆에 검은 손님이 서 있다…', urgent: true });
+    if (g.state === 'kWait') out.push({ text: `접수대 옆에 ${guestName(g)}이(가) 서 있다…`, urgent: true });
     else if ((g.state === 'waiting' || g.state === 'arriving') && !g.noPatience) {
       const r = g.patience / g.patienceMax;
       if (r < 0.35) out.push({ text: `${guestName(g)} 인내심 ${Math.max(0, Math.round(r * 100))}%`, urgent: true });
@@ -1110,8 +1177,8 @@ function hintText() {
   if (cold) return `${guestName(cold)}의 ${cold.tub.label}이 ${cold.offNow < 0 ? '식었어요' : '너무 뜨거워요'}! 탕을 클릭해 온도를 맞춰 주세요.`;
   if (w.fuel < BOILER.warnAt) return '보일러 장작이 부족해요. 보일러실의 가마를 클릭해 장작을 넣으세요.';
   if (w.closed) return '영업 종료 — 안내 중인 손님을 탕에 모시고, 목욕이 끝나기를 기다리세요.';
-  if (w.kaonashi && w.kaonashi.state === 'kWait') return '접수대 옆에 검은 손님이 서 있다. 말을 걸어 보자.';
-  if (w.kaonashi && w.kaonashi.hosted && w.kaonashi.state !== 'leaving') return '얼굴 없는 손님에게 맞는 탕은? 단서 수첩(J)에 답이 있다.';
+  if (w.special && w.special.state === 'kWait') return `접수대 옆에 ${guestName(w.special)}이(가) 서 있다. 말을 걸어 보자.`;
+  if (w.special && w.special.hosted && !['leaving', 'bathing'].includes(w.special.state)) return `${guestName(w.special)}에게 맞는 탕은? 단서 수첩(J)에 답이 있다.`;
   if (w.day > 2) return null;
   if (p.busy > 0) return null;
   if (Game.modal === 'tub') return '불 지피기를 꾹 눌러 온도를 맞추고, 바구니의 약재를 눌러 탕에 넣으세요.';
@@ -1162,13 +1229,13 @@ function updateWorld(dt) {
       if (spawnGuest(s.type)) s.spawned = true; else s.at = w.time + 3;
     }
   }
-  if (!w.closed && w.cfg.kaonashiAt && !w.kEventDone && w.time >= w.cfg.kaonashiAt * w.length) {
-    w.kEventDone = true;
-    spawnKaonashi();
+  if (!w.closed && w.cfg.special && !w.sEventDone && w.time >= w.cfg.specialAt * w.length) {
+    w.sEventDone = true;
+    spawnSpecial(w.cfg.special);
   }
   updatePlayer(dt);
   for (const g of w.guests) updateGuest(g, dt);
-  if (w.kaonashi && w.kaonashi.state === 'gone') w.kaonashi = null;
+  if (w.special && w.special.state === 'gone') w.special = null;
   w.guests = w.guests.filter(g => g.state !== 'gone');
   for (const c of w.clueItems) {
     if (c.fading) {
@@ -1183,11 +1250,11 @@ function updateWorld(dt) {
   Game.heatOn = Game.modal === 'tub' && !!Game.tub && (Game.heating || (Input.keys.has('Space') && !Game.spaceLatch));
   if (Game.heatOn) {
     Game.tub.temp = Math.min(50, Game.tub.temp + (hasUp('firewood') ? 4.6 : 2.9) * boilerSpeed() * dt);
-    w.fuel = Math.max(0, w.fuel - BOILER.heatDrain * dt);
+    w.fuel = Math.max(0, w.fuel - BOILER.heatDrain * (hasGift('fuel') ? 0.7 : 1) * dt);
     w.heatSfx -= dt;
     if (w.heatSfx <= 0) { w.heatSfx = 0.12; Sfx.play('heat'); }
   }
-  w.fuel = Math.max(0, w.fuel - BOILER.idleDrain * dt);
+  w.fuel = Math.max(0, w.fuel - BOILER.idleDrain * (hasGift('fuel') ? 0.7 : 1) * dt);
   if (!w.fuelWarned && w.fuel < BOILER.warnAt) {
     w.fuelWarned = true;
     UI.toast(w.fuel <= 0 ? '보일러 장작이 떨어졌어요! 불이 약해집니다.' : '보일러 장작이 얼마 남지 않았어요 — 보일러실 가마에 장작을 넣으세요', 'warn');
@@ -1207,7 +1274,7 @@ function updateWorld(dt) {
     }
     return;
   }
-  const allDone = w.schedule.every(s => s.spawned) && w.guests.length === 0 && (!w.cfg.kaonashiAt || w.kEventDone);
+  const allDone = w.schedule.every(s => s.spawned) && w.guests.length === 0 && (!w.cfg.special || w.sEventDone);
   if (allDone) {
     if (w.endTimer < 0) { w.endTimer = 3; UI.toast('오늘의 손님을 모두 맞이했어요! 곧 영업을 마칩니다.', 'good'); }
     w.endTimer -= dt;

@@ -111,7 +111,7 @@ const QUEUE_SPOTS = [
   [15.5, 12.5], [16.5, 12.5], [17.5, 12.5], [18.5, 12.5],
   [15.5, 13.6], [16.5, 13.6], [17.5, 13.6], [18.5, 13.6],
 ];
-const K_SPOT = [20.5, 10.6]; // 5일차, 얼굴 없는 손님이 서는 자리
+const K_SPOT = [20.5, 10.6]; // 특별한 손님이 서는 자리
 
 /* ---------- 오브젝트 ----------
  * herbs 가 있으면 약재 채집 지점, kind:'tub' 이면 탕 · scene 생략 시 메인 목욕탕
@@ -241,62 +241,196 @@ const THANKS = {
   1: ['이건 내가 말한 탕이 아니야!', '…실망이다.'],
 };
 
-/* ---------- 영업일 ---------- */
-const DAYS = [
-  {
-    title: '첫 영업', length: 190, guests: 3, twoHerb: 0,
-    pool: ['moss', 'river', 'lantern'], forced: ['moss', 'river', 'lantern'], keepOrder: true,
-    intro: '선배 일꾼이 말했다. "손님 말을 잘 듣고, 약재는 정원이랑 연못에서 찾아.\n다 쓴 탕은 꼭 닦아 두고!"',
+/* ---------- 특별한 손님 ----------
+ * 한 번에 한 분씩 찾아온다. 이틀 동안 목욕탕 곳곳에 단서(하루 2개씩, 총 4개)를 남기고, 사흘째 밤에 방문.
+ * 그 손님의 단서를 CLUES_NEEDED개 이상 모았으면 손님으로 맞이할 수 있고, 단서가 알려 준 탕을 준비하면 선물을 남긴다.
+ * 손님이 다녀가면 다음 날부터 다음 특별한 손님의 단서가 나타난다. 마지막 손님(얼굴 없는 손님)의 결과로 엔딩이 갈린다.
+ */
+const SPECIAL_START = 2; // 첫 특별한 손님의 단서가 나오는 날
+const SPECIAL_ORDER = ['riverGod', 'spiderElder', 'sansin', 'imugi', 'kaonashi'];
+const SPECIALS = {
+  riverGod: {
+    name: '강의 신', alias: '진흙 손님', h: 55, bathY: 20,
+    request: { temp: 39, herbs: ['changpo'] }, bath: 35, reward: 80,
+    days: [
+      { title: '물비린내', intro: '오늘 밤은 어쩐지 강물 냄새가 난다.\n정원과 창고 어딘가에 누군가 다녀간 흔적이 있을지도.' },
+      { title: '젖은 발자국', intro: '욕탕 바닥에 물기가 마르지 않는다.\n누군가 먼 길을 걸어오고 있는 것 같다.' },
+      { title: '강의 신', intro: '물안개가 문턱까지 밀려왔다.\n오늘, 진흙 손님이 찾아올 것만 같다.' },
+    ],
+    arrive: '…… 물비린내와 함께, 진흙투성이 손님이 들어왔다.',
+    greet: '「…먼 길을 왔소. 강이 더러워져 몸이 무겁구려.」\n진흙을 뒤집어쓴 손님이 지친 얼굴로 서 있다.',
+    thanks: '「…몸이 한결 가볍구려. 강물 소리가 다시 들리오.」',
+    sad: '「…….」 진흙 손님은 말없이 물안개 속으로 돌아갔다.',
+    gift: { id: 'cool', name: '맑은 물방울', desc: '탕이 천천히 식는다 (식는 속도 −30%)' },
   },
-  {
-    title: '늘어나는 손님', length: 200, guests: 4, twoHerb: 0,
-    pool: ['moss', 'river', 'lantern', 'mushroom', 'fox', 'crane'], forced: ['mushroom', 'fox'],
-    intro: '소문이 돌았는지 손님이 늘었다.\n오늘은 약재 창고의 약재를 찾는 손님도 온다고 한다.',
+  spiderElder: {
+    name: '거미 할아범', alias: '실 잣는 손님', h: 52, bathY: 16,
+    request: { temp: 44, herbs: ['gamcho'] }, bath: 30, reward: 80,
+    days: [
+      { title: '은빛 실', intro: '창고 선반 사이에 은실이 반짝인다.\n보일러실 구석도 살펴보자.' },
+      { title: '천장의 기척', intro: '천장 쪽에서 사각사각 실 잣는 소리가 난다.\n정원과 창고를 둘러보자.' },
+      { title: '거미 할아범', intro: '오늘 밤, 실을 타고 누군가 내려올 것 같다.' },
+    ],
+    arrive: '…… 천장에서 실을 타고, 거미 할아범이 내려왔다.',
+    greet: '「허허, 실 잣다가 내려왔네. 뜨끈한 물에 몸 좀 지질 수 있겠나?」\n등불 지팡이를 짚은 할아범이 여덟 다리를 꼼지락거리며 웃는다.',
+    thanks: '「어이쿠, 시원하다! 허리가 다 펴지는구먼.」',
+    sad: '「허허… 다음에 또 오지.」 할아범은 실을 타고 천장으로 올라갔다.',
+    gift: { id: 'basket', name: '튼튼한 거미줄 끈', desc: '바구니에 약재를 한 칸 더 담을 수 있다' },
   },
-  {
-    title: '검은 그림자', length: 210, guests: 5, twoHerb: 0,
-    pool: ['moss', 'river', 'lantern', 'mushroom', 'fox', 'turtle', 'rabbit', 'crane', 'butterfly'], forced: ['turtle', 'rabbit', 'butterfly'],
-    clues: ['mask', 'gold'], ghost: true,
-    intro: '요즘 밤마다 검은 그림자를 봤다는 일꾼들이 있다. 연못가와\n창고 구석을 유심히 살펴보자. 보일러실의 유황 소금을 찾는 손님과,\n정원의 국화를 좋아하는 나비 손님도 온다.',
+  sansin: {
+    name: '산신 할머니', alias: '산에서 온 손님', h: 55, bathY: 20,
+    request: { temp: 45, herbs: ['solip'] }, bath: 35, reward: 90,
+    days: [
+      { title: '솔방울', intro: '산바람이 담장을 넘어 불어온다.\n정원의 소나무 근처와 복도를 살펴보자.' },
+      { title: '산에서 온 편지', intro: '누군가 산에서 편지를 보냈다는 소문이 돈다.\n창고와 정원을 둘러보자.' },
+      { title: '산신 할머니', intro: '멀리서 호랑이 울음소리가 들렸다.\n오늘, 산에서 손님이 내려올 것 같다.' },
+    ],
+    arrive: '…… 산바람과 함께, 새끼 호랑이를 데린 할머니가 들어왔다.',
+    greet: '「산 아래 목욕탕에 정성이 깃들었다길래 내려와 봤지. 어디, 솜씨 좀 볼까?」\n흰 머리의 할머니가 지팡이를 짚고 서 있다.',
+    thanks: '「호호, 산바람이 다 녹는구나. 정성이 갸륵하다.」',
+    sad: '「그래, 오늘은 바쁜가 보구나.」 할머니는 호랑이와 함께 산으로 돌아갔다.',
+    gift: { id: 'patience', name: '산신의 부적', desc: '손님들이 조금 더 느긋하게 기다린다 (인내심 +15%)' },
   },
-  {
-    title: '말 없는 소문', length: 220, guests: 6, twoHerb: 0.3,
-    pool: ['moss', 'river', 'lantern', 'mushroom', 'fox', 'turtle', 'rabbit', 'frog', 'butterfly', 'crane', 'dokkaebi', 'snow'], forced: ['frog', 'dokkaebi', 'snow'],
-    clues: ['note', 'shadow'],
-    intro: '그림자는 아무 말도 하지 않는다고 한다. 보일러실과 복도에 무언가 남아\n있을지도. 오늘부터는 약재를 두 가지 찾는 까다로운 손님,\n추위를 타는 눈꽃 정령과 시끌벅적한 도깨비도 온다.',
+  imugi: {
+    name: '구름 이무기', alias: '구름 속 손님', h: 62, bathY: 18,
+    request: { temp: 41, herbs: ['bakha'] }, bath: 35, reward: 90,
+    days: [
+      { title: '남빛 비늘', intro: '맑은 밤인데 목욕탕 안에만 옅은 안개가 낀다.\n정원 구석과 창고를 살펴보자.' },
+      { title: '하늘에 띄운 소원', intro: '천장을 따라 무언가 기다란 것이 지나갔다는 이야기가 있다.\n욕탕과 복도를 살펴보자.' },
+      { title: '구름 이무기', intro: '오늘 밤, 구름을 타고 손님이 찾아올 것 같다.' },
+    ],
+    arrive: '…… 구름을 타고, 기다란 이무기가 스르륵 들어왔다.',
+    greet: '「…천 년을 기다렸어요. 하늘로 오르기 전에, 몸을 정갈히 하고 싶어서…」\n여의주를 품은 이무기가 구름 위에 몸을 동그랗게 말고 있다.',
+    thanks: '「몸이 가벼워요… 이제 하늘에 오를 수 있을 것 같아요!」',
+    sad: '「…아직은 때가 아닌가 봐요.」 이무기는 구름 속으로 숨어 버렸다.',
+    gift: { id: 'fuel', name: '구름 구슬', desc: '보일러 장작이 천천히 닳는다 (소모 −30%)' },
   },
-  {
-    title: '얼굴 없는 손님', length: 220, guests: 5, twoHerb: 0.35,
-    pool: ['moss', 'river', 'lantern', 'mushroom', 'fox', 'turtle', 'rabbit', 'frog', 'butterfly', 'crane', 'dokkaebi', 'snow'], forced: [],
-    kaonashiAt: 0.3,
-    intro: '마지막 날 밤. 안개가 짙다. 오늘, 그 손님이 찾아올 것만 같다.',
-  },
-];
-
-/* ---------- 가오나시 단서 (3~4일차) ---------- */
-const CLUES = {
-  mask: {
-    day: 3, name: '깨진 가면 조각', scene: 'garden', x: 1.5, y: 4.5, icon: 'mask',
-    text: '연못가에서 하얀 가면 조각을 주웠다. 희미하게 연꽃 향이 배어 있다.',
-  },
-  gold: {
-    day: 3, name: '흙으로 변한 금덩이', scene: 'storage', x: 1.5, y: 7.5, icon: 'gold',
-    text: '창고 구석에서 반짝이던 금덩이가, 손에 쥐자 흙으로 부서졌다. 누군가 금으로 마음을 사려 했던 걸까.',
-  },
-  note: {
-    day: 4, name: '일꾼의 쪽지', x: 8.5, y: 10.5, icon: 'note',
-    text: '"검은 그림자가 머물다 간 자리는 미지근했다. 꼭 사람 체온 같았어. 37도쯤?"',
-  },
-  shadow: {
-    day: 4, name: '외로운 그림자', x: 2.5, y: 7.5, npc: true,
-    text: '복도 끝의 검은 손님은 말없이 나를 바라보다 사라졌다. 금보다… 누군가 자신을 손님으로 봐 주길 바라는 것 같았다.',
+  kaonashi: {
+    name: '얼굴 없는 손님', alias: '검은 그림자', h: 76, bathY: 24,
+    request: { temp: 37, herbs: ['yeon'] }, bath: 30, reward: 0,
+    days: [
+      { title: '검은 그림자', intro: '요즘 밤마다 검은 그림자를 봤다는 일꾼들이 있다.\n연못가와 창고 구석을 유심히 살펴보자.' },
+      { title: '말 없는 소문', intro: '그림자는 아무 말도 하지 않는다고 한다.\n보일러실과 복도에 무언가 남아 있을지도.' },
+      { title: '얼굴 없는 손님', intro: '마지막 날 밤. 안개가 짙다.\n오늘, 그 손님이 찾아올 것만 같다.' },
+    ],
+    arrive: '…… 안개와 함께, 얼굴 없는 손님이 들어왔다.',
+    // 얼굴 없는 손님은 금 / 거절 / 맞이하기 선택지가 따로 있다 (game.js kaonashiDialog)
+    thanks: '「……따뜻해. 고마워.」',
+    sad: '「……」',
+    gift: null,
   },
 };
-const CLUE_ORDER = ['mask', 'gold', 'note', 'shadow'];
+
+/* 단서 — guest: 특별한 손님, phase: 0이면 첫째 날, 1이면 둘째 날. npc: 다가가 말을 거는 그림자 단서 */
+const CLUES = {
+  // 강의 신
+  reed: { guest: 'riverGod', phase: 0, name: '낯선 갈대 다발', scene: 'garden', x: 5.5, y: 3.5, icon: 'reed',
+    text: '연못가에 강에서나 자라는 굵은 갈대가 한 다발 놓여 있다. 창포 냄새가 짙게 배어 있다.' },
+  scale: { guest: 'riverGod', phase: 0, name: '은빛 비늘', scene: 'storage', x: 6.5, y: 6.5, icon: 'scale',
+    text: '창고 바닥에 손바닥만 한 은빛 비늘이 떨어져 있다.\n"강물이 제일 좋을 때는 39도쯤이지." 비늘을 본 선배 일꾼이 중얼거렸다.' },
+  wetprint: { guest: 'riverGod', phase: 1, name: '젖은 발자국', x: 11.5, y: 4.5, icon: 'print',
+    text: '욕탕 바닥에 물기 어린 발자국이 줄지어 있다. 발자국마다 작은 조약돌이 하나씩. 누군가 아주 먼 길을 걸어온 모양이다.' },
+  riverShadow: { guest: 'riverGod', phase: 1, name: '진흙투성이 그림자', x: 12.5, y: 7.5, npc: true,
+    meet: { text: '……\n(복도에 진흙을 뒤집어쓴 손님이 서 있다. 발밑에 흙탕물이 고인다.)', button: '저기… 길을 잃으셨어요?' },
+    text: '진흙 손님은 "강이 더러워져 쉴 곳을 찾고 있소…"라고 말하고 물안개처럼 흩어졌다. 몹시 지쳐 보였다.' },
+  // 거미 할아범
+  thread: { guest: 'spiderElder', phase: 0, name: '반짝이는 거미줄', scene: 'storage', x: 9.5, y: 7.5, icon: 'thread',
+    text: '창고 선반 사이에 은실 같은 거미줄이 쳐져 있다. 거미줄 끝에 작은 쪽지가 매달려 있다.\n"뼈마디가 쑤시니 뜨끈하게, 44도."' },
+  spool: { guest: 'spiderElder', phase: 0, name: '작은 실타래', x: 10.5, y: 10.5, icon: 'spool',
+    text: '보일러실 구석에서 손톱만 한 실타래를 주웠다. 가마 옆 따뜻한 자리를 좋아하는 누군가가 두고 간 것 같다.' },
+  wrapper: { guest: 'spiderElder', phase: 1, name: '감초 사탕 껍질', scene: 'garden', x: 11.5, y: 7.5, icon: 'wrapper',
+    text: '정원 바위 위에 감초 사탕 껍질이 잔뜩 쌓여 있다. 감초처럼 달큰한 것을 무척 좋아하는 손님인가 보다.' },
+  spiderShadow: { guest: 'spiderElder', phase: 1, name: '여덟 다리 그림자', scene: 'storage', x: 5.5, y: 4.5, npc: true,
+    meet: { text: '……\n(천장에서 실을 타고 동그란 그림자가 내려왔다.)', button: '안녕하세요…?' },
+    text: '동그란 거미 노인이 꾸벅 인사했다. "허허, 실 잣느라 허리가 남아나질 않는구먼." 그러고는 다시 천장으로 올라가 버렸다.' },
+  // 산신 할머니
+  pinecone: { guest: 'sansin', phase: 0, name: '솔방울 세 개', scene: 'garden', x: 9.5, y: 4.5, icon: 'pinecone',
+    text: '소나무 아래 솔방울 세 개가 가지런히 놓여 있다. 누군가 솔잎 향을 찾아 이곳에 들른 것 같다.' },
+  fur: { guest: 'sansin', phase: 0, name: '줄무늬 털 뭉치', x: 4.5, y: 7.5, icon: 'fur',
+    text: '복도에 주황빛 줄무늬 털 뭉치가 떨어져 있다. 커다란 고양이…일까? 아니면…' },
+  mountainLetter: { guest: 'sansin', phase: 1, name: '산에서 온 편지', scene: 'storage', x: 2.5, y: 5.5, icon: 'note',
+    text: '"산바람에 몸이 식었으니 뜨겁게, 45도로 데워 주게. — 산 위에 사는 이가"' },
+  sansinShadow: { guest: 'sansin', phase: 1, name: '흰 머리의 노인', scene: 'garden', x: 6.5, y: 7.5, npc: true,
+    meet: { text: '……\n(정원에 흰 머리를 길게 늘어뜨린 노인이 지팡이를 짚고 서 있다.)', button: '어르신, 어떻게 오셨어요?' },
+    text: '노인의 발치에서 새끼 호랑이가 꼬리를 흔들었다. "정성 있는 아이에겐 복을 주지." 노인은 웃으며 바람처럼 사라졌다.' },
+  // 구름 이무기
+  cloudScale: { guest: 'imugi', phase: 0, name: '남빛 비늘', scene: 'garden', x: 11.5, y: 1.5, icon: 'cloud',
+    text: '정원 구석에 금빛 무늬가 새겨진 남빛 비늘이 떨어져 있다. 손에 올리자 스르르 안개가 되어 사라졌다. 수줍음이 많은 손님 같다.' },
+  mintMist: { guest: 'imugi', phase: 0, name: '박하 향 안개', scene: 'storage', x: 8.5, y: 3.5, icon: 'mint',
+    text: '창고 안에 박하 향이 섞인 안개가 낮게 깔려 있다. 안개가 지나간 자리에 박하 잎이 몇 장 흩어져 있다.' },
+  wish: { guest: 'imugi', phase: 1, name: '하늘에 띄운 소원', x: 20.5, y: 5.5, icon: 'note',
+    text: '욕탕 창가에 소원지가 걸려 있다.\n"용이 되기 전에 몸을 정갈히 하고 싶어요. 너무 뜨거우면 구름이 흩어지니 41도로."' },
+  imugiShadow: { guest: 'imugi', phase: 1, name: '긴 그림자', x: 19.5, y: 7.5, npc: true,
+    meet: { text: '……\n(복도 천장을 따라 기다란 그림자가 스르륵 움직인다.)', button: '거기 누구 있어요?' },
+    text: '여의주를 품은 이무기가 부끄러운 듯 고개를 숨겼다. "천 년을 기다렸는데… 아직 용이 못 됐어요."' },
+  // 얼굴 없는 손님
+  mask: { guest: 'kaonashi', phase: 0, name: '깨진 가면 조각', scene: 'garden', x: 1.5, y: 4.5, icon: 'mask',
+    text: '연못가에서 하얀 가면 조각을 주웠다. 희미하게 연꽃 향이 배어 있다.' },
+  gold: { guest: 'kaonashi', phase: 0, name: '흙으로 변한 금덩이', scene: 'storage', x: 1.5, y: 7.5, icon: 'gold',
+    text: '창고 구석에서 반짝이던 금덩이가, 손에 쥐자 흙으로 부서졌다. 누군가 금으로 마음을 사려 했던 걸까.' },
+  note: { guest: 'kaonashi', phase: 1, name: '일꾼의 쪽지', x: 8.5, y: 10.5, icon: 'note',
+    text: '"검은 그림자가 머물다 간 자리는 미지근했다. 꼭 사람 체온 같았어. 37도쯤?"' },
+  shadow: { guest: 'kaonashi', phase: 1, name: '외로운 그림자', x: 2.5, y: 7.5, npc: true,
+    meet: { text: '……\n(복도 끝의 검은 손님이 가만히 이쪽을 바라보고 있다.)', button: '저기… 괜찮으세요?' },
+    text: '복도 끝의 검은 손님은 말없이 나를 바라보다 사라졌다. 금보다… 누군가 자신을 손님으로 봐 주길 바라는 것 같았다.' },
+};
 const CLUES_NEEDED = 3;
-const KAONASHI_REQUEST = { temp: 37, herbs: ['yeon'] };
-const KAONASHI_BATH = 30; // 얼굴 없는 손님 목욕 시간(초)
 const CLOSING_GRACE = 150; // 영업 마감 후 남은 손님을 마무리할 수 있는 최대 시간(초, 안전장치)
+
+function specialSchedule(id) {
+  const d0 = SPECIAL_START + SPECIAL_ORDER.indexOf(id) * 3;
+  return { clueDays: [d0, d0 + 1], visit: d0 + 2 };
+}
+function cluesOf(id) { return Object.keys(CLUES).filter(k => CLUES[k].guest === id); }
+function clueDay(id) { return specialSchedule(CLUES[id].guest).clueDays[CLUES[id].phase]; }
+// 이 날 단서를 모으거나 방문하는 특별한 손님 (없으면 null)
+function specialOfDay(day) {
+  if (day < SPECIAL_START) return null;
+  return SPECIAL_ORDER[Math.floor((day - SPECIAL_START) / 3)] || null;
+}
+
+/* ---------- 영업일 ----------
+ * 1일차는 연습, 이후 특별한 손님 한 분당 사흘(단서 이틀 + 방문). 손님 구성은 날이 갈수록 늘어난다.
+ */
+const POOL_A = ['moss', 'river', 'lantern'];
+const POOL_B = [...POOL_A, 'mushroom', 'fox', 'crane'];
+const POOL_C = [...POOL_B, 'turtle', 'rabbit', 'butterfly'];
+const POOL_D = [...POOL_C, 'frog', 'dokkaebi', 'snow'];
+const NEWCOMERS = {
+  2: { forced: ['mushroom', 'fox'], note: '손님이 늘었다. 오늘은 약재 창고의 약재를 찾는 손님도 온다.' },
+  3: { forced: ['turtle', 'rabbit', 'butterfly'], note: '보일러실의 유황 소금을 찾는 손님과,\n정원의 국화를 좋아하는 나비 손님도 온다.' },
+  5: { forced: ['frog', 'dokkaebi', 'snow'], note: '오늘부터는 약재를 두 가지 찾는 까다로운 손님,\n추위를 타는 눈꽃 정령과 시끌벅적한 도깨비도 온다.' },
+};
+function makeDay(day) {
+  if (day === 1) {
+    return {
+      title: '첫 영업', length: 190, guests: 3, twoHerb: 0,
+      pool: POOL_A, forced: POOL_A, keepOrder: true,
+      intro: '선배 일꾼이 말했다. "손님 말을 잘 듣고, 약재는 정원이랑 연못에서 찾아.\n다 쓴 탕은 꼭 닦아 두고!"',
+    };
+  }
+  const late = day >= 11;
+  const cfg = {
+    title: '', intro: '',
+    length: day < 3 ? 200 : day < 5 ? 210 : late ? 230 : 220,
+    guests: day < 3 ? 4 : day < 5 ? 5 : late ? 7 : 6,
+    twoHerb: day < 5 ? 0 : Math.min(0.45, 0.25 + (day - 5) * 0.02),
+    pool: day < 3 ? POOL_B : day < 5 ? POOL_C : POOL_D,
+    forced: NEWCOMERS[day] ? NEWCOMERS[day].forced : [],
+  };
+  const sid = specialOfDay(day);
+  if (sid) {
+    const phase = (day - SPECIAL_START) % 3, sd = SPECIALS[sid].days[phase];
+    cfg.title = sd.title; cfg.intro = sd.intro;
+    if (phase < 2) cfg.clues = cluesOf(sid).filter(k => CLUES[k].phase === phase);
+    else { cfg.special = sid; cfg.specialAt = 0.3; cfg.guests -= 1; }
+    if (sid === 'kaonashi' && phase === 0) cfg.ghost = true;
+  }
+  if (NEWCOMERS[day]) cfg.intro += '\n' + NEWCOMERS[day].note;
+  return cfg;
+}
+const DAY_COUNT = SPECIAL_START - 1 + SPECIAL_ORDER.length * 3; // 16일
+const DAYS = Array.from({ length: DAY_COUNT }, (_, k) => makeDay(k + 1));
 
 const GHOST_SPOTS = [ // [x, y, 장면]
   [2.5, 8.2, 'main'], [3.5, 3.5, 'storage'], [16.5, 7.5, 'main'], [10.5, 4.6, 'main'], [3.5, 4.6, 'garden'], [9.5, 11.5, 'main'],
@@ -336,9 +470,9 @@ const KAONASHI_LINES = {
 const ENDING_TYPES = ['normal', 'special'];
 const ENDING_INFO = {
   normal: { tag: '일반 엔딩', title: '손님맞이를 마치며', hint: '마지막 날의 영업까지 모두 마치면 볼 수 있다.' },
-  special: { tag: '특수 엔딩', title: '얼굴 없는 손님의 미소', hint: '3·4일차의 단서를 모으고, 마지막 밤의 손님에게 금 대신 무엇을 건넬지 생각해 보자.' },
+  special: { tag: '특수 엔딩', title: '얼굴 없는 손님의 미소', hint: '마지막 손님인 검은 그림자의 단서를 모으고, 마지막 밤에 금 대신 무엇을 건넬지 생각해 보자.' },
 };
-// 일반 엔딩의 후일담 (5일차 얼굴 없는 손님에 대한 선택)
+// 일반 엔딩의 후일담 (마지막 날 얼굴 없는 손님에 대한 선택)
 const EPILOGUE_ORDER = ['gold', 'refuse', 'none', 'failed'];
 const EPILOGUE_LABELS = { gold: '금을 받았다', refuse: '정중히 거절했다', none: '말을 걸지 않았다', failed: '그에게 맞는 탕을 준비하지 못했다' };
 const RANK_ORDER = ['S', 'A', 'B', 'C'];
@@ -356,7 +490,53 @@ const SPECIAL_ENDING = [
  * 타이틀 배경: title_bg (1600×900, 글자 없는 그림) — 예) title_bg: { src: 'assets/title_bg.webp' }
  * ax, ay: 이미지 안의 기준점(0~1). 캐릭터는 발밑, 오브젝트는 바닥 중앙.
  * 예) chihiro: { src: 'assets/chihiro.png', w: 48, h: 64, ax: 0.5, ay: 0.95 },
+ * 스프라이트 시트: sheet: { fw, fh, anims: { 이름: { row, seq: [프레임 번호…], fps } } }, scale 로 그릴 크기 조절
  */
 const ASSET_MANIFEST = {
   title_bg: { src: 'assets/title/title_bg.webp' },
+  // 플레이어: 88×104 칸, 1줄 대기(눈 깜빡임) · 2줄 걷기 8프레임 · 3줄 앉아서 작업
+  chihiro: {
+    src: 'assets/chars/chihiro.png', ax: 0.5, ay: 101 / 104, scale: 0.52,
+    sheet: {
+      fw: 88, fh: 104,
+      anims: {
+        idle:  { row: 0, seq: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 2, 1], fps: 8 },
+        // 걷기: 보폭 프레임과 발 모은 프레임을 번갈아 → 한 발짝마다 리듬이 생김.
+        // fps 대신 perTile(이동 1칸당 프레임 수)로 실제 걸은 거리에 맞춰 넘김 → 발 미끄러짐 방지
+        walk:  { row: 1, seq: [1, 2, 6, 4, 5, 0], perTile: 4.5 },
+        kneel: { row: 2, seq: [0, 1, 2, 3, 4, 5], fps: 8 },
+      },
+    },
+  },
+  // 대화창 초상화용 원본 해상도 주인공 (게임 시트는 절반 크기라 키우면 흐려짐)
+  chihiro_portrait: { src: 'assets/chars/chihiro_portrait.png' },
+  // 특별한 손님: 1줄 대기 · 2줄 이동 6프레임 · 3줄 탕 속(셋째 칸은 기뻐하는 얼굴)
+  // 같은 3줄 형식의 시트를 assets/chars/<손님id>.png 로 넣고 한 줄 추가하면 도형 대신 그려진다
+  riverGod: specialSheet('riverGod', 180, 125, 0.5973, 121, 0.54, 4, 24, { walk: 1.2, bath: 0.8 }),
+  spiderElder: specialSheet('spiderElder', 181, 139, 0.5914, 135, 0.5, 4, 26, { walk: 1.15, bath: 0.8 }),
+  sansin: specialSheet('sansin', 134, 108, 0.4723, 103, 0.6, 4, 20, { walk: 1.05, bath: 0.9 }),
+  imugi: specialSheet('imugi', 130, 119, 0.5472, 110, 0.59, 4, 24, { walk: 1.5, bath: 0.8 }),
+  // 일반 손님도 같은 3줄 형식 시트를 쓸 수 있다 (h: 초상화 크기 맞춤용 키)
+  moss: { ...specialSheet('moss', 164, 148, 0.4728, 143, 0.33, 4, 11, { walk: 1.12, bath: 0.78 }), h: 44 },   // 이끼 노인
+  // 등롱 요괴: 떠다니는 손님이라 float(px)만큼 바닥에서 띄우고 살짝 오르내린다
+  lantern: { ...specialSheet('lantern', 161, 135, 0.5553, 131, 0.32, 4, 14), h: 42, float: 7 },
+  fox: { ...specialSheet('fox', 178, 120, 0.489, 116, 0.38, 4, 14), h: 42 },   // 여우불 아가씨
+  river: { ...specialSheet('river', 177, 134, 0.4534, 118, 0.42, 4, 12), h: 42, float: 6 },   // 강물 정령 (떠다님)
 };
+/* 특별한 손님 시트 정의: fw·fh 칸 크기, ax 기준점 가로 위치, foot 발 높이, scale 그릴 크기,
+ * idleN 대기 프레임 수, bathY 탕 속에 잠기는 깊이(px),
+ * size 걷기·탕 속 줄의 크기 배율 — 원본 시트에서 줄마다 그려진 크기가 달라서 대기 모습 크기에 맞춘다 */
+function specialSheet(key, fw, fh, ax, foot, scale, idleN, bathY, size = {}) {
+  return {
+    src: `assets/chars/${key}.png`, ax, ay: foot / fh, scale, bathY,
+    sheet: {
+      fw, fh,
+      anims: {
+        idle:    { row: 0, seq: idleN === 3 ? [0, 1, 2, 1] : [0, 1, 2, 3, 2, 1], fps: 4 },
+        walk:    { row: 1, seq: [0, 1, 2, 3, 4, 5], fps: 9, scale: size.walk || 1 },
+        bath:    { row: 2, seq: [0, 0, 1, 1, 3, 3, 1, 1, 0, 0, 2, 2, 2], fps: 3, scale: size.bath || 1 },
+        bathOff: { row: 2, seq: [0, 1], fps: 2, scale: size.bath || 1 },   // 물이 차갑거나 뜨거울 때 — 웃는 얼굴 없이
+      },
+    },
+  };
+}

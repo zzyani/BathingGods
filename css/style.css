@@ -372,3 +372,17 @@ kbd { display: inline-block; padding: 0 6px; border-radius: 4px; border: 1px sol
   .portrait { flex-basis: 80px; width: 80px; height: 80px; }
   .portrait canvas { width: 80px; height: 80px; }
 }
+
+/* 단서 수첩: 특별한 손님별 탭 */
+.j-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+.j-tab { font: inherit; font-size: 13px; padding: 6px 10px; border-radius: 999px; border: 1px solid #cbbba0; background: #efe6d4; color: var(--ink); cursor: pointer; }
+.j-tab.on { background: var(--kao); border-color: var(--kao); color: #fff; }
+.j-tab.done:not(.on)::after { content: ' ✓'; color: var(--kao); font-weight: 700; }
+.j-tab.locked { cursor: default; color: #a8987f; background: #e6dcc8; }
+.j-tab small { margin-left: 4px; font-size: 11px; opacity: 0.8; }
+.j-who { display: flex; align-items: center; gap: 12px; margin: 0 0 10px; }
+.j-portrait { width: 64px; height: 64px; border-radius: 12px; background: #e6dcc8; flex: 0 0 64px; }
+.j-who b { font-size: 16px; }
+.j-who p { margin: 2px 0 0; font-size: 13px; color: var(--ink-soft); line-height: 1.5; }
+.owned .gift { background: #ece2f3; color: var(--kao); }
+.day-num small { font-size: 0.55em; opacity: 0.6; font-weight: 400; }

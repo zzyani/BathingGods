@@ -170,10 +170,27 @@ const Assets = {
       this.imgs[k] = { img, def };
     }
   },
+  /* 스프라이트 시트 애니메이션: anim 이름과 진행값으로 프레임을 골라 그린다
+   * 진행값 t는 fps 애니메이션이면 시간(초), perTile 애니메이션이면 걸은 거리(칸) */
+  drawAnim(ctx, key, anim, t, x, y, flip = false, alpha = 1) {
+    const a = this.imgs[key];
+    if (!a || !a.img.complete || !a.img.naturalWidth || !a.def.sheet) return false;
+    const d = a.def, sh = d.sheet, an = sh.anims[anim] || sh.anims.idle;
+    const f = an.seq[Math.floor(t * (an.perTile ?? an.fps)) % an.seq.length];
+    const s = (d.scale || 1) * (an.scale || 1), w = sh.fw * s, h = sh.fh * s;   // an.scale: 줄별 크기 보정
+    ctx.save();
+    ctx.globalAlpha *= alpha;
+    ctx.translate(x, y);
+    if (flip) ctx.scale(-1, 1);
+    ctx.drawImage(a.img, f * sh.fw, an.row * sh.fh, sh.fw, sh.fh, -w * (d.ax ?? 0.5), -h * (d.ay ?? 1), w, h);
+    ctx.restore();
+    return true;
+  },
   draw(ctx, key, x, y, flip = false, alpha = 1) {
     const a = this.imgs[key];
     if (!a || !a.img.complete || !a.img.naturalWidth) return false;
     const d = a.def;
+    if (d.sheet) return this.drawAnim(ctx, key, 'idle', 0, x, y, flip, alpha);
     const w = d.w || a.img.naturalWidth, h = d.h || a.img.naturalHeight;
     ctx.save();
     ctx.globalAlpha *= alpha;
