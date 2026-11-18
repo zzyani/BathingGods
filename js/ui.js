@@ -55,18 +55,20 @@ const UI = (() => {
   function title(save) {
     showScreen(`
       <div class="title-wrap">
-        <div class="title-sub">비공식 팬게임 · 2D 경영 + 탐험 시뮬레이션</div>
-        <h1 class="game-title">신들의 손님맞이</h1>
-        <div class="title-line"></div>
-        <p class="title-desc">신들이 쉬어 가는 목욕탕에서, 닷새 동안 손님을 맞이하세요.</p>
-        <div class="menu">
-          <button class="btn primary" data-act="new">새로 시작</button>
-          <button class="btn" data-act="cont" ${save ? '' : 'disabled'}>이어하기${save ? ` · ${save.day}일차` : ''}</button>
-          <button class="btn" data-act="help">조작법 · 규칙</button>
+        <h1 class="logo"><img src="assets/title/logo.webp" alt="신들의 손님맞이" width="1774" height="887"></h1>
+        <div class="title-menu">
+          <button class="btn primary" data-act="new">새 게임</button>
+          <button class="btn" data-act="cont" ${save ? '' : 'disabled'}>이어서 하기${save ? `<small>${save.day}일차</small>` : ''}</button>
+          <button class="btn" data-act="album">엔딩 앨범</button>
+          <button class="btn" data-act="help">조작법</button>
         </div>
-        <div class="foot">《센과 치히로의 행방불명》에서 영감을 받은 비영리 팬 창작물 · 게임 기획·구현 포트폴리오</div>
+        <p class="foot">《센과 치히로의 행방불명》에서 영감을 받은 비영리 팬 창작물입니다.</p>
       </div>`, 'title');
-    bind(E.screen, { new: () => newGame(), cont: () => continueGame(), help: () => help(() => title(loadSave())) });
+    bind(E.screen, {
+      new: () => newGame(), cont: () => continueGame(),
+      album: () => openAlbum(() => title(loadSave())),
+      help: () => help(() => title(loadSave())),
+    });
   }
 
   function helpHTML() {
@@ -186,13 +188,13 @@ const UI = (() => {
     if (type === 'special') {
       paras = SPECIAL_ENDING.map(p => `<p>${esc(p)}</p>`).join('');
     } else {
-      const k = m.kResult === 'failed' ? 'failed' : (m.kChoice === 'host' ? 'failed' : (m.kChoice || 'none'));
+      const k = epilogueKey(m);
       paras = `<p>${esc(RANKS[data.rank].text)}</p><p>${esc(KAONASHI_LINES[k])}</p>
         <p class="hint">숨겨진 결말이 있습니다 — 3·4일차의 단서를 ${CLUES_NEEDED}개 이상 모으고, 마지막 밤에 그를 손님으로 맞이해 보세요.</p>`;
     }
     showScreen(`<div class="card ending ${type}">
-      <div class="end-tag">${type === 'special' ? '특수 엔딩' : '일반 엔딩'}</div>
-      <h2>${type === 'special' ? '얼굴 없는 손님의 미소' : '닷새의 손님맞이'}</h2>
+      <div class="end-tag">${ENDING_INFO[type].tag}</div>${data.newEntry ? '<div class="new-badge">앨범에 새 엔딩이 기록되었어요</div>' : ''}
+      <h2>${ENDING_INFO[type].title}</h2>
       <canvas id="end-art" width="720" height="320"></canvas>
       <div class="end-text">${paras}</div>
       <div class="rank"><b>${data.rank}</b>${esc(RANKS[data.rank].title)}</div>
@@ -207,6 +209,57 @@ const UI = (() => {
     </div>`);
     Render.endingArt(E.screen.querySelector('#end-art'), type);
     bind(E.screen, { title: () => restartToTitle() });
+  }
+
+  /* ---------- 엔딩 앨범 ---------- */
+  function album(data, back) {
+    const got = ENDING_TYPES.filter(t => data.endings[t]).length;
+    const card = type => {
+      const info = ENDING_INFO[type], e = data.endings[type];
+      if (!e) {
+        return `<div class="album-card locked">
+          <div class="ac-art"><span>?</span></div>
+          <div class="ac-body"><div class="ac-tag">${info.tag}</div><b>???</b>
+          <p class="ac-hint">${esc(info.hint)}</p></div></div>`;
+      }
+      const epi = type === 'normal'
+        ? `<div class="ac-epi"><div class="ac-epi-title">후일담 ${e.epilogues.length}/${EPILOGUE_ORDER.length}</div>
+          ${EPILOGUE_ORDER.map(k => `<span class="${e.epilogues.includes(k) ? 'on' : ''}">${e.epilogues.includes(k) ? esc(EPILOGUE_LABELS[k]) : '???'}</span>`).join('')}</div>`
+        : '';
+      return `<div class="album-card got ${type}">
+        <div class="ac-art"><canvas data-art="${type}" width="480" height="214"></canvas></div>
+        <div class="ac-body"><div class="ac-tag">${info.tag}</div><b>${esc(info.title)}</b>
+          <ul class="ac-meta">
+            <li>처음 본 날 · ${esc(e.first)}</li>
+            <li>본 횟수 · ${e.count}회</li>
+            <li>최고 등급 · ${e.bestRank} ${esc(RANKS[e.bestRank].title)} · 최고 점수 ${e.bestScore}</li>
+          </ul>${epi}
+          <button class="btn" data-act="view" data-type="${type}">다시 보기</button>
+        </div></div>`;
+    };
+    showScreen(`<div class="card album">
+      <h2>엔딩 앨범</h2>
+      <p class="album-sub">모은 엔딩 ${got} / ${ENDING_TYPES.length} · 새로 시작해도 기록은 남아요.</p>
+      <div class="album-grid">${ENDING_TYPES.map(card).join('')}</div>
+      <div class="actions"><button class="btn primary" data-act="back">돌아가기</button></div>
+    </div>`);
+    E.screen.querySelectorAll('canvas[data-art]').forEach(c => Render.endingArt(c, c.dataset.art));
+    bind(E.screen, { back, view: b => albumView(b.dataset.type, data, back) });
+  }
+  function albumView(type, data, backToTitle) {
+    const e = data.endings[type], info = ENDING_INFO[type];
+    const paras = type === 'special'
+      ? SPECIAL_ENDING.map(p => `<p>${esc(p)}</p>`).join('')
+      : `<p>${esc(RANKS[e.lastRank || e.bestRank].text)}</p><p>${esc(KAONASHI_LINES[e.lastEpilogue || 'none'])}</p>`;
+    showScreen(`<div class="card ending ${type}">
+      <div class="end-tag">${info.tag} · 다시 보기</div>
+      <h2>${esc(info.title)}</h2>
+      <canvas id="end-art" width="720" height="320"></canvas>
+      <div class="end-text">${paras}</div>
+      <div class="actions"><button class="btn primary" data-act="back">앨범으로</button></div>
+    </div>`);
+    Render.endingArt(E.screen.querySelector('#end-art'), type);
+    bind(E.screen, { back: () => album(loadAlbum(), backToTitle) });
   }
 
   /* ---------- 모달 ---------- */
@@ -392,9 +445,10 @@ const UI = (() => {
     let rel = '';
     if (g.known && !g.special && g.state !== 'bathing') {
       const r = relationsOf(g.type), parts = [];
-      if (r.dislike.length) parts.push(`<span class="bad">싫어함</span> ${r.dislike.map(t => esc(GUEST_TYPES[t].name)).join(', ')}`);
-      if (r.like.length) parts.push(`<span class="good">좋아함</span> ${r.like.map(t => esc(GUEST_TYPES[t].name)).join(', ')}`);
-      if (parts.length) rel = `<div class="o-rel">${parts.join(' · ')}</div>`;
+      // 좋아함 → 싫어함 순서, 한 줄에 하나씩
+      if (r.like.length) parts.push(`<div><span class="good">좋아함</span> ${r.like.map(t => esc(GUEST_TYPES[t].name)).join(', ')}</div>`);
+      if (r.dislike.length) parts.push(`<div><span class="bad">싫어함</span> ${r.dislike.map(t => esc(GUEST_TYPES[t].name)).join(', ')}</div>`);
+      if (parts.length) rel = `<div class="o-rel">${parts.join('')}</div>`;
     }
     const pat = g.noPatience || g.state === 'bathing' || g.state === 'toTub' ? '' : '<div class="o-pat"><i></i></div>';
     return `<div class="order s-${g.state}${g.special ? ' special' : ''}" data-g="${g.id}">
@@ -491,7 +545,7 @@ const UI = (() => {
   function setSoundIcon(muted) { E.btnSound.textContent = muted ? '🔇' : '🔊'; }
 
   return {
-    init, showScreen, hideScreen, showHUD, title, help, story, dayIntro, dayEnd, shop, ending,
+    init, showScreen, hideScreen, showHUD, title, help, story, dayIntro, dayEnd, shop, ending, album,
     dialog, choose, closeModal, openTub, refreshTub, journal, pause, updateHUD, toast, tooltip, hideTooltip, setSoundIcon,
     hasDialogButton: i => !!(dialogButtons[i] && !dialogButtons[i].disabled),
     primaryIndex: () => dialogButtons.findIndex(b => b.primary && !b.disabled),

@@ -132,6 +132,13 @@
 
 단서 텍스트가 정답(연꽃 향, 사람 체온 37°C)을 암시하므로, 그의 주문은 `???`로 숨겨져 있고 플레이어는 단서 수첩을 근거로 탕을 준비해야 합니다.
 
+### 엔딩 앨범
+
+- 타이틀 화면 '이어서 하기' 아래 **엔딩 앨범** 버튼 (모은 엔딩 수는 앨범 안에서 표시)
+- 엔딩을 볼 때마다 `localStorage`에 기록 (`gods-bathhouse-album-v1`) — 새로 시작해도 지워지지 않음
+- 엔딩별 처음 본 날·본 횟수·최고 등급·최고 점수, 일반 엔딩은 **후일담 4종**(금을 받음 / 거절 / 말을 걸지 않음 / 탕이 어긋남) 수집 현황
+- 못 본 엔딩은 잠금 카드와 힌트, 본 엔딩은 일러스트와 '다시 보기'
+
 ## 프로젝트 구조
 
 ```
@@ -169,6 +176,10 @@ const ASSET_MANIFEST = {
 - 캐릭터 키: `chihiro`, `kaonashi`, `moss` `lantern` `river` `mushroom` `fox` `turtle` `rabbit` `frog` `butterfly` `crane` `dokkaebi` `snow`
 - 오브젝트 키: `tree` `pine` `patch` `shelf` `jar` `basket` `crate` `furnace` `counter` (탕은 상태 표현 때문에 코드 렌더 유지)
 - 권장 규격: 투명 PNG, 쿼터뷰 시점, 타일 1칸 = 64×32px 기준
+- 타이틀 화면 에셋 (`assets/title/`, 적용됨)
+  - `title_bg.webp`: 배경 (`ASSET_MANIFEST.title_bg` 로 등록, 없으면 코드로 그린 노천탕 배경 사용) — 글자 없는 16:9 그림
+  - `logo.webp`: 타이틀 로고 (투명 여백은 CSS로 잘라서 표시)
+  - `btn_main.png` / `btn_plain.png`: 메뉴 팻말 (빨간 ♨ / 크림색 벚꽃). 원본에서 투명 여백을 잘라 800px 폭으로 줄임
 
 ## 6일 개발 계획 (참고)
 

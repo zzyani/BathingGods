@@ -170,21 +170,41 @@ button { font-family: inherit; }
 
 /* ---------- 전체 화면 (타이틀 · 일차 · 정산 · 엔딩) ---------- */
 #screen {
-  position: absolute; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center;
+  position: absolute; inset: 0; z-index: 20; display: flex; align-items: flex-start; justify-content: center;
   padding: 16px; overflow-y: auto; background: rgba(10, 8, 24, .55);
 }
-#screen.title { background: radial-gradient(ellipse at center, rgba(10,8,24,.25), rgba(10,8,24,.75)); }
-.title-wrap { text-align: center; max-width: 560px; animation: fadeUp .8s ease-out; }
-.title-sub { font-size: 14px; letter-spacing: 3px; color: #d8c7a8; }
-.game-title {
-  font-family: var(--serif); font-weight: 700; font-size: clamp(44px, 9vw, 78px); margin: 10px 0 6px;
-  color: #f7e2ae; text-shadow: 0 0 24px rgba(232,140,60,.55), 0 3px 0 #7a2a1e; letter-spacing: 4px;
-}
-.title-line { width: 160px; height: 3px; margin: 0 auto 14px; background: linear-gradient(90deg, transparent, var(--red), transparent); }
-.title-desc { color: #eadcbf; margin: 0 0 26px; }
+#screen.title { background: radial-gradient(ellipse at 50% 45%, rgba(20,10,20,0) 40%, rgba(20,10,20,.45) 100%); }
 .menu { display: flex; flex-direction: column; gap: 10px; align-items: center; }
 .menu .btn { width: 220px; }
-.foot { margin-top: 30px; font-size: 12px; color: #a99bb8; }
+/* 타이틀: 밤의 노천탕 위 간판 로고 + 나무 팻말 메뉴 */
+.title-wrap {
+  width: min(900px, 100%); margin: auto; display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.logo { margin: 0; width: min(640px, 88vw); animation: logo-in .9s cubic-bezier(.2,.9,.25,1.15); }
+/* logo.webp 는 투명 여백이 있어(그림 영역 x 141~1642, y 16~854 / 1774×887) 여백만큼 바깥으로 밀어 그림 영역을 상자에 맞춤 */
+.logo img { display: block; width: 118.11%; max-width: none; height: auto; margin: -1.065% 0 -2.13% -9.387%; filter: drop-shadow(0 10px 18px rgba(20,8,4,.55)); }
+@keyframes logo-in { from { opacity: 0; transform: translateY(-28px) scale(.96); } }
+
+/* 메뉴: 전달받은 팻말 이미지 (btn_main = 빨간 ♨ 팻말, btn_plain = 크림색 벚꽃 팻말) */
+.title-menu { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 10px; }
+.title-menu .btn {
+  flex-direction: row; gap: 10px; width: 330px; min-height: 0; aspect-ratio: 800 / 142; padding: 0 70px;
+  font-family: "Yeon Sung", var(--serif); font-size: 25px; letter-spacing: .08em; color: #5a2a14;
+  border: none; border-radius: 0; box-shadow: none;
+  background: url("../assets/title/btn_plain.png") center / 100% 100% no-repeat;
+  filter: drop-shadow(0 5px 8px rgba(20,8,4,.4));
+}
+.title-menu .btn.primary {
+  width: 390px; aspect-ratio: 800 / 145; font-size: 30px; color: #fff3df;
+  background-image: url("../assets/title/btn_main.png");
+  text-shadow: 0 2px 0 rgba(90,16,8,.55);
+}
+.title-menu .btn small { font-family: var(--sans); font-size: 12px; letter-spacing: 0; opacity: .7; }
+.title-menu .btn:hover:not(:disabled) { filter: drop-shadow(0 5px 8px rgba(20,8,4,.4)) brightness(1.06); transform: translateY(-1px); }
+.title-menu .btn:active:not(:disabled) { transform: translateY(2px); box-shadow: none; }
+.title-menu .btn:disabled { opacity: .6; filter: grayscale(.5) drop-shadow(0 5px 8px rgba(20,8,4,.3)); }
+.foot { margin: 22px 0 0; font-size: 12px; color: rgba(255,244,226,.78); text-shadow: 0 1px 3px rgba(0,0,0,.8); }
+
 @keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } }
 
 .card {
@@ -205,7 +225,7 @@ button { font-family: inherit; }
 .day-num { font-family: var(--serif); font-size: 42px; font-weight: 700; color: var(--red-dark); line-height: 1; }
 .day-num.small { font-size: 24px; }
 .day-title { font-family: var(--serif); font-size: 20px; color: var(--ink-soft); margin-top: 6px; }
-.day-text { font-size: 16px; margin: 16px 0; padding: 12px 16px; background: var(--paper-2); border-radius: 10px; border-left: 4px solid var(--wood); }
+.day-text { white-space: pre-line; font-size: 16px; margin: 16px 0; padding: 12px 16px; background: var(--paper-2); border-radius: 10px; border-left: 4px solid var(--wood); }
 .day-info { margin: 0; padding-left: 20px; line-height: 1.9; font-size: 14px; }
 .day-info .kao { color: var(--kao); font-weight: 700; }
 .owned { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
@@ -239,6 +259,27 @@ table.log tr.miss td { color: var(--bad); }
 .rank { font-family: var(--serif); font-size: 18px; margin: 10px 0; }
 .rank b { font-size: 34px; color: var(--red-dark); margin-right: 8px; }
 
+.new-badge { display: inline-block; margin-left: 8px; font-size: 12px; padding: 3px 10px; border-radius: 12px; background: #f6e2a8; color: #7a5410; font-weight: 700; animation: fadeUp .6s ease-out; }
+.album { width: min(860px, 100%); }
+.album-sub { margin: 0 0 14px; color: var(--ink-soft); font-size: 14px; }
+.album-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+.album-card { border-radius: 14px; overflow: hidden; background: var(--paper-2); border: 1.5px solid #cdb88f; display: flex; flex-direction: column; }
+.album-card.special.got { border-color: var(--kao); box-shadow: 0 0 0 3px rgba(107,74,138,.2); }
+.ac-art { aspect-ratio: 480 / 214; background: #1a1430; display: grid; place-items: center; }
+.ac-art canvas { width: 100%; height: 100%; display: block; }
+.ac-art span { font-family: var(--serif); font-size: 54px; color: rgba(232,195,106,.35); }
+.album-card.locked .ac-art { background: repeating-linear-gradient(45deg, #1c1630, #1c1630 10px, #221a3a 10px, #221a3a 20px); }
+.ac-body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+.ac-body > b { font-family: var(--serif); font-size: 18px; color: var(--red-dark); }
+.album-card.locked .ac-body > b { color: #9a8a74; }
+.ac-tag { font-size: 11px; letter-spacing: 2px; color: var(--ink-soft); }
+.ac-meta { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.7; color: var(--ink); }
+.ac-hint { margin: 0; font-size: 13px; color: var(--ink-soft); line-height: 1.6; }
+.ac-epi { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 2px; }
+.ac-epi-title { width: 100%; font-size: 12px; font-weight: 700; color: var(--ink-soft); }
+.ac-epi span { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: #e2d4b6; color: #9a8a74; }
+.ac-epi span.on { background: #efe0f5; color: var(--kao); font-weight: 700; }
+.ac-body .btn { margin-top: auto; align-self: flex-start; padding: 7px 16px; min-height: 0; font-size: 14px; }
 .help-grid { display: grid; gap: 14px; font-size: 14px; }
 .help-grid h3 { font-family: var(--serif); margin: 0 0 6px; color: var(--red-dark); font-size: 16px; }
 .help-grid ul, .help-grid ol { margin: 0; padding-left: 20px; line-height: 1.8; }
@@ -325,6 +366,8 @@ kbd { display: inline-block; padding: 0 6px; border-radius: 4px; border: 1px sol
   #hud-buttons { bottom: 86px; }
   #hint { bottom: 140px; }
   .slot { width: 50px; }
+  .title-menu .btn { width: min(300px, 82vw); font-size: 22px; padding: 0 56px; }
+  .title-menu .btn.primary { width: min(350px, 88vw); font-size: 26px; }
   .dialog { flex-direction: column; margin-bottom: 80px; }
   .portrait { flex-basis: 80px; width: 80px; height: 80px; }
   .portrait canvas { width: 80px; height: 80px; }

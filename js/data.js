@@ -246,24 +246,24 @@ const DAYS = [
   {
     title: '첫 영업', length: 190, guests: 3, twoHerb: 0,
     pool: ['moss', 'river', 'lantern'], forced: ['moss', 'river', 'lantern'], keepOrder: true,
-    intro: '선배 일꾼이 말했다. "손님 말을 잘 듣고, 약재는 정원이랑 연못에서 찾아. 다 쓴 탕은 꼭 닦아 두고!"',
+    intro: '선배 일꾼이 말했다. "손님 말을 잘 듣고, 약재는 정원이랑 연못에서 찾아.\n다 쓴 탕은 꼭 닦아 두고!"',
   },
   {
     title: '늘어나는 손님', length: 200, guests: 4, twoHerb: 0,
     pool: ['moss', 'river', 'lantern', 'mushroom', 'fox', 'crane'], forced: ['mushroom', 'fox'],
-    intro: '소문이 돌았는지 손님이 늘었다. 오늘은 약재 창고의 약재를 찾는 손님도 온다고 한다.',
+    intro: '소문이 돌았는지 손님이 늘었다.\n오늘은 약재 창고의 약재를 찾는 손님도 온다고 한다.',
   },
   {
     title: '검은 그림자', length: 210, guests: 5, twoHerb: 0,
     pool: ['moss', 'river', 'lantern', 'mushroom', 'fox', 'turtle', 'rabbit', 'crane', 'butterfly'], forced: ['turtle', 'rabbit', 'butterfly'],
     clues: ['mask', 'gold'], ghost: true,
-    intro: '요즘 밤마다 검은 그림자를 봤다는 일꾼들이 있다. 연못가와 창고 구석을 유심히 살펴보자. 보일러실의 유황 소금을 찾는 손님과, 정원의 국화를 좋아하는 나비 손님도 온다.',
+    intro: '요즘 밤마다 검은 그림자를 봤다는 일꾼들이 있다. 연못가와\n창고 구석을 유심히 살펴보자. 보일러실의 유황 소금을 찾는 손님과,\n정원의 국화를 좋아하는 나비 손님도 온다.',
   },
   {
     title: '말 없는 소문', length: 220, guests: 6, twoHerb: 0.3,
     pool: ['moss', 'river', 'lantern', 'mushroom', 'fox', 'turtle', 'rabbit', 'frog', 'butterfly', 'crane', 'dokkaebi', 'snow'], forced: ['frog', 'dokkaebi', 'snow'],
     clues: ['note', 'shadow'],
-    intro: '그림자는 아무 말도 하지 않는다고 한다. 보일러실과 복도에 무언가 남아 있을지도. 오늘부터는 약재를 두 가지 찾는 까다로운 손님, 추위를 타는 눈꽃 정령과 시끌벅적한 도깨비도 온다.',
+    intro: '그림자는 아무 말도 하지 않는다고 한다. 보일러실과 복도에 무언가 남아\n있을지도. 오늘부터는 약재를 두 가지 찾는 까다로운 손님,\n추위를 타는 눈꽃 정령과 시끌벅적한 도깨비도 온다.',
   },
   {
     title: '얼굴 없는 손님', length: 220, guests: 5, twoHerb: 0.35,
@@ -313,15 +313,15 @@ const UPGRADES = [
 
 /* ---------- 이야기 ---------- */
 const STORY_PAGES = [
-  '강 건너 불빛이 하나둘 켜지는 밤.\n길을 잃은 소녀 치히로는 신들이 쉬어 가는 목욕탕에서 일하게 되었다.',
-  '이곳을 찾는 손님은 모두 신령.\n저마다 좋아하는 물의 온도와 약재가 다르다.\n손님의 이야기를 잘 듣고, 목욕탕 곳곳에서 약재를 구해 와 탕을 준비하자.',
-  '닷새.\n닷새 동안 손님을 정성껏 맞이하면,\n이 목욕탕의 진짜 일꾼으로 인정받을 수 있을 것이다.',
+  '강 건너 불빛이 하나둘 켜지는 밤.\n길을 잃은 소녀 치히로는 신들이 쉬어 가는\n목욕탕에서 일하게 되었다.',
+  '이곳을 찾는 손님은 모두 신령.\n저마다 좋아하는 물의 온도와 약재가 다르다.\n손님의 이야기를 잘 듣고,\n목욕탕 곳곳에서 약재를 구해 와 탕을 준비하자.',
+  '손님 한 분 한 분을 정성껏 맞이하면,\n언젠가 이 목욕탕의 진짜 일꾼으로\n인정받을 수 있을 것이다.',
 ];
 
 const RANKS = {
-  S: { title: '전설의 일꾼', text: '닷새 동안 치히로의 탕을 다녀간 신들은 모두 만족스러운 얼굴로 돌아갔다. 이제 목욕탕의 누구도 그녀를 견습생이라 부르지 않는다.' },
+  S: { title: '전설의 일꾼', text: '치히로의 탕을 다녀간 신들은 모두 만족스러운 얼굴로 돌아갔다. 이제 목욕탕의 누구도 그녀를 견습생이라 부르지 않는다.' },
   A: { title: '믿음직한 일꾼', text: '실수도 있었지만, 신들은 치히로의 이름을 기억하게 되었다. 선배 일꾼은 말없이 그녀의 어깨를 두드려 주었다.' },
-  B: { title: '성실한 견습생', text: '서툴지만 성실했던 닷새. 치히로는 손님의 말에 귀 기울이는 법을 조금씩 배워 가고 있다.' },
+  B: { title: '성실한 견습생', text: '서툴지만 성실했던 날들. 치히로는 손님의 말에 귀 기울이는 법을 조금씩 배워 가고 있다.' },
   C: { title: '아직은 서툰 견습생', text: '탕은 뜨겁거나 미지근했고, 약재는 자주 바뀌었다. 그래도 치히로는 내일도 걸레를 들 것이다.' },
 };
 
@@ -331,6 +331,17 @@ const KAONASHI_LINES = {
   none: '그날 밤, 접수대 앞에 서 있던 검은 손님은 아무도 모르게 사라졌다.',
   failed: '탕에서 나온 얼굴 없는 손님은 조용히 고개를 숙이고 떠났다. 무언가 조금, 어긋나 있었던 것 같다.',
 };
+
+// 엔딩 앨범
+const ENDING_TYPES = ['normal', 'special'];
+const ENDING_INFO = {
+  normal: { tag: '일반 엔딩', title: '손님맞이를 마치며', hint: '마지막 날의 영업까지 모두 마치면 볼 수 있다.' },
+  special: { tag: '특수 엔딩', title: '얼굴 없는 손님의 미소', hint: '3·4일차의 단서를 모으고, 마지막 밤의 손님에게 금 대신 무엇을 건넬지 생각해 보자.' },
+};
+// 일반 엔딩의 후일담 (5일차 얼굴 없는 손님에 대한 선택)
+const EPILOGUE_ORDER = ['gold', 'refuse', 'none', 'failed'];
+const EPILOGUE_LABELS = { gold: '금을 받았다', refuse: '정중히 거절했다', none: '말을 걸지 않았다', failed: '그에게 맞는 탕을 준비하지 못했다' };
+const RANK_ORDER = ['S', 'A', 'B', 'C'];
 
 const SPECIAL_ENDING = [
   '연꽃 향이 피어오르는 미지근한 물. 사람의 체온과 같은 온도에 몸을 담근 얼굴 없는 손님은, 한참 동안 아무 말도 하지 않았다.',
@@ -342,8 +353,10 @@ const SPECIAL_ENDING = [
 /* ---------- 에셋 교체용 매니페스트 ----------
  * AI 제작 이미지를 쓰려면 여기에 등록하세요. 없으면 도형으로 그립니다.
  * key: 'chihiro' | 'kaonashi' | 손님 타입(moss, fox …) | 오브젝트 kind(tree, pine, patch, shelf, jar, basket, crate, furnace, counter)
+ * 타이틀 배경: title_bg (1600×900, 글자 없는 그림) — 예) title_bg: { src: 'assets/title_bg.webp' }
  * ax, ay: 이미지 안의 기준점(0~1). 캐릭터는 발밑, 오브젝트는 바닥 중앙.
  * 예) chihiro: { src: 'assets/chihiro.png', w: 48, h: 64, ax: 0.5, ay: 0.95 },
  */
 const ASSET_MANIFEST = {
+  title_bg: { src: 'assets/title/title_bg.webp' },
 };

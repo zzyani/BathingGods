@@ -15,6 +15,7 @@ const Game = {
 };
 const SAVE_KEY = 'gods-bathhouse-save-v1';
 const SOUND_KEY = 'gods-bathhouse-muted';
+const ALBUM_KEY = 'gods-bathhouse-album-v1'; // 엔딩 앨범 (새로 시작해도 지워지지 않음)
 
 /* ---------- 저장 ---------- */
 function newMeta() {
@@ -23,6 +24,37 @@ function newMeta() {
 function saveMeta() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(Game.meta)); } catch (e) { /* 저장 불가 환경 */ } }
 function loadSave() { try { const s = localStorage.getItem(SAVE_KEY); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
 function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* noop */ } }
+/* ---------- 엔딩 앨범 ---------- */
+function loadAlbum() {
+  try { const s = localStorage.getItem(ALBUM_KEY); const a = s ? JSON.parse(s) : null; return a && a.endings ? a : { endings: {} }; }
+  catch (e) { return { endings: {} }; }
+}
+function saveAlbum(a) { try { localStorage.setItem(ALBUM_KEY, JSON.stringify(a)); } catch (e) { /* 저장 불가 환경 */ } }
+function epilogueKey(m) { return (m.kResult === 'failed' || m.kChoice === 'host') ? 'failed' : (m.kChoice || 'none'); }
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+}
+// 엔딩을 앨범에 기록. 처음 본 엔딩이면 true
+function recordEnding(type, rank, m) {
+  const a = loadAlbum();
+  const isNew = !a.endings[type];
+  const e = a.endings[type] || { first: todayStr(), count: 0, bestRank: null, bestScore: 0, epilogues: [] };
+  e.count++;
+  if (!e.bestRank || RANK_ORDER.indexOf(rank) < RANK_ORDER.indexOf(e.bestRank)) e.bestRank = rank;
+  e.bestScore = Math.max(e.bestScore || 0, m.score);
+  e.lastRank = rank;
+  if (type === 'normal') {
+    const k = epilogueKey(m);
+    if (!e.epilogues.includes(k)) e.epilogues.push(k);
+    e.lastEpilogue = k;
+  }
+  a.endings[type] = e;
+  saveAlbum(a);
+  return isNew;
+}
+function openAlbum(back) { UI.album(loadAlbum(), back); }
+
 function hasUp(id) { return !!(Game.meta && Game.meta.upgrades.includes(id)); }
 function invCap() { return hasUp('basket') ? 5 : 3; }
 
@@ -181,9 +213,10 @@ function showEnding() {
   const avg = Util.avg(m.stars);
   const rank = avg >= 4.5 ? 'S' : avg >= 3.8 ? 'A' : avg >= 3 ? 'B' : 'C';
   clearSave();
+  const newEntry = recordEnding(type, rank, m);
   Game.screen = 'ending';
   UI.showHUD(false);
-  UI.ending(type, { rank, avg, meta: m });
+  UI.ending(type, { rank, avg, meta: m, newEntry });
   Sfx.play(type === 'special' ? 'clue' : 'good');
 }
 
@@ -1280,6 +1313,7 @@ function update(dt) {
 function render() {
   const ctx = Game.ctx, W = Game.W, H = Game.H;
   ctx.setTransform(Game.dpr, 0, 0, Game.dpr, 0, 0);
+  if (Game.screen === 'title' || Game.screen === 'story') { Render.titleScene(ctx, W, H, Game.t, Game.dpr); return; }
   Render.background(ctx, W, H, Game.t);
   const w = Game.world;
   if (!w) return;
