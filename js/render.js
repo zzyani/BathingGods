@@ -1033,9 +1033,100 @@ const Render = (() => {
     ell(c, x - w * 0.25, y - h * 0.35, w * 0.45, h * 0.3, 'rgba(255,255,255,0.12)');
     for (let k = 0; k < 4; k++) ell(c, x - w * 0.5 + hash(k, x) * w, y - h * 0.75 + hash(x, k) * 6, w * 0.22, h * 0.14, k % 2 ? '#56733f' : '#45602f');
   }
+  /* ---------- 배경 이미지 → 게임 팔레트 판화풍 ----------
+   * 배경 이미지는 밑그림으로만 쓴다: 흐리게 → 색 계열별 램프(밤·목재·불빛·등롱·벚꽃·이끼)로
+   * 단계 매핑 → 확대 후 다시 매핑해 경계를 정리 → 종이 질감. 한 번만 계산해 둔다.
+   */
+  const tsHex = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+  const TS_RAMP = {
+    night: ['#0d1124', '#161c36', '#212949', '#313c62', '#4c5a84', '#8292b4', '#cdd5e2'].map(tsHex),
+    wood:  ['#261a20', '#36262a', '#4a3532', '#62463b'].map(tsHex),
+    glow:  ['#3c1f18', '#7a3c22', '#b9673a', '#e69a4e', '#f5c97f', '#fbe8bd'].map(tsHex),
+    red:   ['#2e1013', '#6a2020', '#a3352c', '#cf5a45'].map(tsHex),
+    pink:  ['#5e3448', '#9a5170', '#d3829a', '#efbcc4', '#f9e3e2'].map(tsHex),
+    moss:  ['#10181a', '#1c2a28', '#2b3f35', '#455a43', '#6d7d59'].map(tsHex),
+  };
+  const tsCanvas = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+  function tsTone(r, g, b) {
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn, l = (mx + mn) / 510, s = d / (mx + 1);
+    let h = 0;
+    if (d) { h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h *= 60; if (h < 0) h += 360; }
+    const pick = (ramp, lo, hi) => ramp[Math.max(0, Math.min(ramp.length - 1, Math.floor((l - lo) / (hi - lo) * ramp.length)))];
+    const redH = h >= 335 || h < 18;
+    if (redH && s >= 0.3 && l > 0.55) return pick(TS_RAMP.pink, 0.5, 0.95);             // 벚꽃
+    if (redH && s > 0.45 && l > 0.16) return pick(TS_RAMP.red, 0.14, 0.6);              // 등롱·노렌
+    if (h >= 18 && h < 60 && s > 0.35 && l > 0.3) return pick(TS_RAMP.glow, 0.3, 0.88); // 창 불빛
+    if ((h < 45 || h >= 320) && s > 0.15 && l > 0.26 && l < 0.55) return pick(TS_RAMP.wood, 0.26, 0.55);
+    if (h >= 60 && h < 165 && s > 0.15) return pick(TS_RAMP.moss, 0.1, 0.55);
+    return pick(TS_RAMP.night, 0, 0.78);
+  }
+  function tsMap(cv) {
+    const g = cv.getContext('2d'), d = g.getImageData(0, 0, cv.width, cv.height), a = d.data, memo = new Map();
+    for (let i = 0; i < a.length; i += 4) {
+      const key = (a[i] >> 2) << 12 | (a[i + 1] >> 2) << 6 | (a[i + 2] >> 2);
+      let o = memo.get(key);
+      if (!o) { o = tsTone(a[i], a[i + 1], a[i + 2]); memo.set(key, o); }
+      a[i] = o[0]; a[i + 1] = o[1]; a[i + 2] = o[2];
+    }
+    g.putImageData(d, 0, 0);
+  }
+  function tsClean(img) {
+    // 1280×720 기준: 노렌 글자 ゆ → 탕, 잠든 여우 → 바위·덤불
+    const c = tsCanvas(1280, 720), g = c.getContext('2d');
+    g.drawImage(img, 0, 0, 1280, 720);
+    const p = g.getImageData(1036, 350, 1, 1).data;
+    g.fillStyle = `rgb(${p[0]},${p[1]},${p[2]})`; g.fillRect(948, 336, 90, 98);
+    g.fillStyle = '#f4eadb'; g.font = `bold 60px ${SERIF}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('탕', 993, 388);
+    const rk = g.getImageData(1040, 650, 1, 1).data;
+    g.fillStyle = `rgb(${rk[0]},${rk[1]},${rk[2]})`;
+    g.beginPath(); g.ellipse(1175, 612, 100, 40, 0, Math.PI, 0); g.lineTo(1275, 625); g.lineTo(1075, 625); g.fill();
+    [[1110, 560, 34], [1150, 545, 40], [1196, 552, 38], [1236, 566, 32], [1130, 585, 30], [1214, 588, 30]]
+      .forEach(([x, y, r], i) => { g.fillStyle = i % 2 ? '#3f6a3e' : '#567f4a'; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); });
+    return c;
+  }
+  function tsStylize(img) {
+    const small = tsCanvas(640, 360), sg = small.getContext('2d');
+    sg.filter = 'blur(1.6px)'; sg.drawImage(tsClean(img), 0, 0, 640, 360); sg.filter = 'none';
+    tsMap(small);
+    const f = tsCanvas(TW, THt), fg = f.getContext('2d');
+    fg.imageSmoothingQuality = 'high'; fg.filter = 'blur(1.6px)'; fg.drawImage(small, 0, 0, TW, THt); fg.filter = 'none';
+    tsMap(f);
+    // 종이 질감
+    const pc = tsCanvas(256, 256), pg = pc.getContext('2d'), pd = pg.createImageData(256, 256);
+    for (let i = 0; i < pd.data.length; i += 4) { const v = 128 + (hash(i, 7) - 0.5) * 90; pd.data[i] = pd.data[i + 1] = pd.data[i + 2] = v; pd.data[i + 3] = 255; }
+    pg.putImageData(pd, 0, 0);
+    pg.strokeStyle = 'rgba(255,255,255,0.18)'; pg.lineWidth = 0.6;
+    for (let i = 0; i < 90; i++) {
+      const x = hash(i, 1) * 256, y = hash(1, i) * 256, a = hash(i, 2) * 6.28, l = 4 + hash(2, i) * 10;
+      pg.beginPath(); pg.moveTo(x, y); pg.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); pg.stroke();
+    }
+    fg.globalCompositeOperation = 'overlay'; fg.globalAlpha = 0.12;
+    fg.fillStyle = fg.createPattern(pc, 'repeat'); fg.fillRect(0, 0, TW, THt);
+    fg.globalCompositeOperation = 'source-over'; fg.globalAlpha = 1;
+    return f;
+  }
+  function tsBuild(img) {
+    if (TS.building) return;
+    TS.building = true;
+    const fontReady = document.fonts
+      ? Promise.race([document.fonts.load(`bold 60px ${SERIF}`), new Promise(r => setTimeout(r, 1500))]).catch(() => {})
+      : Promise.resolve();
+    fontReady.then(() => {
+      try { TS.styled = tsStylize(img); }
+      catch (e) { TS.styled = img; }   // file:// 등으로 픽셀을 읽을 수 없으면 원본 그대로
+      TS.readyAt = performance.now();
+      TS.key = '';
+    });
+  }
   function tsStatic(c) {
     const bg = Assets.imgs.title_bg;
-    if (bg && bg.img.complete && bg.img.naturalWidth) { c.drawImage(bg.img, 0, 0, TW, THt); return; }
+    if (bg && bg.img.complete && bg.img.naturalWidth) {
+      if (TS.styled) { c.drawImage(TS.styled, 0, 0, TW, THt); return; }
+      tsBuild(bg.img);
+      c.fillStyle = '#0d1124'; c.fillRect(0, 0, TW, THt);
+      return;
+    }
     // 하늘
     let g = c.createLinearGradient(0, 0, 0, 520);
     g.addColorStop(0, '#26305c'); g.addColorStop(0.5, '#4f4a7e'); g.addColorStop(1, '#b9806f');
@@ -1112,9 +1203,9 @@ const Render = (() => {
       c.fillStyle = g; c.fillRect(x, ny, nw, nh);
       c.fillStyle = 'rgba(0,0,0,0.12)'; c.fillRect(x + nw * 0.33, ny, 3, nh); c.fillRect(x + nw * 0.7, ny, 3, nh);
     }
-    c.font = 'bold 92px "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", serif';
+    c.font = `bold 84px ${SERIF}`;
     c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#f6e7cc';
-    c.fillText('ゆ', nx + 2 * (nw + 8) + nw / 2, ny + nh * 0.5);
+    c.fillText('탕', nx + 2 * (nw + 8) + nw / 2, ny + nh * 0.5);
     // 툇마루
     c.fillStyle = '#5b3b27'; c.fillRect(150, 700, 1450, 22);
     c.strokeStyle = 'rgba(30,18,10,0.5)'; c.lineWidth = 2;
@@ -1195,10 +1286,53 @@ const Render = (() => {
     c.font = 'bold 70px "Apple SD Gothic Neo", sans-serif'; c.fillStyle = '#fff1d8'; c.textAlign = 'center'; c.textBaseline = 'middle';
     c.fillText('♨', 330, 310);
   }
+  /* 판화풍 배경 위에 코드로 얹는 연출 (1600×900 기준): 등불 깜빡임·김·전경 바위·꽃잎 */
+  function tsStyledFx(ctx, t) {
+    // 등롱·석등 불빛 — 그라데이션 대신 단색 원을 겹쳐 평면적으로
+    [[346, 269, 112], [212, 731, 88]].forEach(([x, y, r], k) => {
+      const a = 0.07 + Math.sin(t * 3 + k) * 0.02 + Math.sin(t * 7.3 + k) * 0.01;
+      circle(ctx, x, y, r * 1.5, `rgba(245,190,110,${a * 0.6})`);
+      circle(ctx, x, y, r, `rgba(245,190,110,${a})`);
+    });
+    // 김
+    [600, 800, 975, 1162, 700, 1075, 880].forEach((x0, i) => {
+      const p = ((t * 15 + i * 59) % 262) / 262;
+      const y = 894 - p * 262, x = x0 + Math.sin(t * 0.8 + i) * 18 + p * 25;
+      ctx.fillStyle = `rgba(236,230,214,${Math.sin(p * Math.PI) * 0.14})`;
+      ctx.beginPath();
+      ctx.ellipse(x, y, 50 + p * 38, 18 + p * 10, 0, 0, Math.PI * 2);
+      ctx.ellipse(x + 32, y - 12, 32 + p * 25, 14 + p * 8, 0, 0, Math.PI * 2);
+      ctx.ellipse(x - 30, y - 8, 28 + p * 20, 11 + p * 6, 0, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    // 전경 바위 실루엣과 풀
+    for (const [x, y, rx, ry] of [[1462, 800, 188, 88], [1588, 762, 88, 62], [475, 890, 175, 38]]) {
+      ctx.fillStyle = '#0b0e1c';
+      ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, Math.PI, 0); ctx.lineTo(x + rx, y + ry); ctx.lineTo(x - rx, y + ry); ctx.fill();
+      ctx.strokeStyle = '#222842'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, Math.PI * 1.15, Math.PI * 1.6); ctx.stroke();
+    }
+    ctx.fillStyle = '#080a14';
+    for (let i = 0; i < 30; i++) {
+      const x = 1300 + i * 10, hh = 30 + (i * 37 % 42);
+      ctx.beginPath(); ctx.moveTo(x, 905); ctx.quadraticCurveTo(x + 5, 905 - hh * 0.6, x + 12, 905 - hh); ctx.lineTo(x + 7, 905); ctx.fill();
+    }
+    // 꽃잎
+    for (let i = 0; i < 30; i++) {
+      const sp = 0.6 + hash(i, 13) * 0.8;
+      const x = ((hash(i, 17) * 1800 + t * 30 * sp) % 1800) - 100 + Math.sin(t * 1.1 + i) * 30;
+      const y = ((hash(17, i) * 1000 + t * 40 * sp) % 1000) - 60;
+      ell(ctx, x, y, 6, 3.2, i % 3 ? '#e3a0ae' : '#f2c6cb', t * sp * 1.6 + i);
+    }
+    // 변환이 끝난 직후 부드럽게 나타나기
+    const fade = 1 - Math.min(1, (performance.now() - TS.readyAt) / 600);
+    if (fade > 0) { ctx.fillStyle = `rgba(13,17,36,${fade})`; ctx.fillRect(0, 0, TW, THt); }
+  }
   function titleScene(ctx, W, H, t, dpr) {
+    if (W < 1 || H < 1) return;   // 창이 숨겨져 크기가 0일 때
     const s = Math.max(W / TW, H / THt), ox = (W - TW * s) / 2, oy = (H - THt * s) / 2;
     const bg = Assets.imgs.title_bg;
-    const key = `${W}x${H}x${dpr}:${bg && bg.img.complete ? 1 : 0}`;
+    const key = `${W}x${H}x${dpr}:${TS.styled ? 2 : bg && bg.img.complete ? 1 : 0}`;
     if (!TS.cache || TS.key !== key) {
       TS.cache = TS.cache || document.createElement('canvas');
       TS.cache.width = Math.round(W * dpr); TS.cache.height = Math.round(H * dpr);
@@ -1209,11 +1343,11 @@ const Render = (() => {
     }
     ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(TS.cache, 0, 0); ctx.restore();
     ctx.save(); ctx.translate(ox, oy); ctx.scale(s, s);
+    if (TS.styled) { tsStyledFx(ctx, t); ctx.restore(); return; }
+    if (bg && bg.img.complete && bg.img.naturalWidth) { ctx.restore(); return; }   // 판화풍 변환 중
     // 불빛
     ctx.globalCompositeOperation = 'lighter';
-    const lights = bg && bg.img.complete && bg.img.naturalWidth
-      ? [[346, 292, 230, 0.26], [212, 728, 150, 0.22]]   // 배경 이미지의 등롱·석등 위치
-      : [[330, 300, 230, 0.32], [185, 698, 150, 0.28]];
+    const lights = [[330, 300, 230, 0.32], [185, 698, 150, 0.28]];
     for (const [x, y, r, a] of lights) {
       const k = a * (0.9 + Math.sin(t * 2.3 + x) * 0.08);
       const g = ctx.createRadialGradient(x, y, 6, x, y, r);
