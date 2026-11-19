@@ -671,26 +671,35 @@ const Render = (() => {
     ctx.restore();
   }
 
+  /* 얼굴 없는 손님: 시트가 없을 때 쓰는 코드 그림 — 시트와 같은 디자인(둥근 가면 · 금 간 자국 · 머리 위 수건) */
   function kaonashi(ctx, x, y, t, alpha = 1, o = {}) {
     if (specialSprite(ctx, 'kaonashi', x, y, t, alpha, o)) return;
     ctx.save();
     ctx.translate(x, y);
     ctx.globalAlpha *= alpha;
-    ell(ctx, 0, 0, 14, 5, 'rgba(0,0,0,0.3)');
-    const sway = Math.sin(t * 1.6) * 1.5;
-    ctx.fillStyle = 'rgba(14,11,20,0.92)';
-    ctx.beginPath(); ctx.moveTo(-15, 0);
-    ctx.bezierCurveTo(-16 + sway * 0.3, -30, -13 + sway, -66, sway, -68);
-    ctx.bezierCurveTo(13 + sway, -66, 16 + sway * 0.3, -30, 15, 0);
-    ctx.quadraticCurveTo(0, 4, -15, 0);
+    ell(ctx, 0, 0, 15, 5, 'rgba(0,0,0,0.3)');
+    const sway = Math.sin(t * 1.6) * 1.2;
+    // 두건을 쓴 남색 몸
+    ctx.fillStyle = '#25283b';
+    ctx.beginPath(); ctx.moveTo(-17, 0);
+    ctx.bezierCurveTo(-18, -28, -15 + sway * 0.5, -58, sway, -60);
+    ctx.bezierCurveTo(15 + sway * 0.5, -58, 18, -28, 17, 0);
+    ctx.quadraticCurveTo(0, 4, -17, 0);
     ctx.fill();
-    const mx = sway * 0.9, my = -50;
-    ell(ctx, mx, my, 8.5, 11.5, '#f4f1ea');
-    ell(ctx, mx - 3.6, my - 2, 2.1, 1.3, '#1a1420'); ell(ctx, mx + 3.6, my - 2, 2.1, 1.3, '#1a1420');
-    ctx.fillStyle = '#7a4c8c';
-    ctx.fillRect(mx - 4.2, my - 9, 1.2, 4); ctx.fillRect(mx + 3, my - 9, 1.2, 4);
-    ctx.fillRect(mx - 4.2, my + 1, 1.2, 3.5); ctx.fillRect(mx + 3, my + 1, 1.2, 3.5);
-    ctx.fillStyle = '#3a2a3a'; ctx.fillRect(mx - 2.5, my + 6.5, 5, 1.2);
+    // 둥근 가면과 금 간 자국, 가는 눈
+    const mx = sway * 0.8 + 3, my = -38;
+    circle(ctx, mx, my, 11, '#f3ede2');
+    ctx.strokeStyle = '#d9a640'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(mx + 4, my - 10.5); ctx.lineTo(mx + 6.5, my - 5); ctx.lineTo(mx + 3.5, my - 1);
+    ctx.lineTo(mx + 7.5, my + 4); ctx.lineTo(mx + 5, my + 9.5); ctx.stroke();
+    ctx.fillStyle = '#1a1420';
+    ctx.fillRect(mx - 6.5, my - 1, 3.6, 1.3); ctx.fillRect(mx + 2.5, my - 1, 3.6, 1.3);
+    // 가슴께에 모은 두 손
+    circle(ctx, mx - 4, -20, 3.2, '#181a29'); circle(ctx, mx + 2.5, -20, 3.2, '#181a29');
+    // 머리 위에 얹은 수건
+    rrect(ctx, -11 + sway, -66, 21, 8, 4, '#f4f2ec');
+    ctx.fillStyle = '#7d8fd0'; ctx.fillRect(-10 + sway, -61.5, 19, 1.4);
+    ctx.lineWidth = 1;
     ctx.restore();
   }
 

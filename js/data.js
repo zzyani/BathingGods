@@ -306,7 +306,7 @@ const SPECIALS = {
     gift: { id: 'fuel', name: '구름 구슬', desc: '보일러 장작이 천천히 닳는다 (소모 −30%)' },
   },
   kaonashi: {
-    name: '얼굴 없는 손님', alias: '검은 그림자', h: 76, bathY: 24,
+    name: '얼굴 없는 손님', alias: '검은 그림자', h: 66, bathY: 24,
     request: { temp: 37, herbs: ['yeon'] }, bath: 30, reward: 0,
     days: [
       { title: '검은 그림자', intro: '요즘 밤마다 검은 그림자를 봤다는 일꾼들이 있다.\n연못가와 창고 구석을 유심히 살펴보자.' },
@@ -494,11 +494,12 @@ const SPECIAL_ENDING = [
  */
 const ASSET_MANIFEST = {
   title_bg: { src: 'assets/title/title_bg.webp' },
-  // 플레이어: 88×104 칸, 1줄 대기(눈 깜빡임) · 2줄 걷기 8프레임 · 3줄 앉아서 작업
+  // 플레이어: 91×114 칸, 1줄 대기(눈 깜빡임) · 2줄 걷기 8프레임 · 3줄 앉아서 작업
+  // 걷기 프레임은 모두 대기 0번의 머리를 그대로 붙여 씀 (걸을 때 머리 크기가 바뀌지 않게)
   chihiro: {
-    src: 'assets/chars/chihiro.png', ax: 0.5, ay: 101 / 104, scale: 0.52,
+    src: 'assets/chars/chihiro.png', ax: 0.4954, ay: 105 / 114, scale: 0.52,
     sheet: {
-      fw: 88, fh: 104,
+      fw: 91, fh: 114,
       anims: {
         idle:  { row: 0, seq: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 2, 1], fps: 8 },
         // 걷기: 보폭 프레임과 발 모은 프레임을 번갈아 → 한 발짝마다 리듬이 생김.
@@ -516,16 +517,32 @@ const ASSET_MANIFEST = {
   spiderElder: specialSheet('spiderElder', 181, 139, 0.5914, 135, 0.5, 4, 26, { walk: 1.15, bath: 0.8 }),
   sansin: specialSheet('sansin', 134, 108, 0.4723, 103, 0.6, 4, 20, { walk: 1.05, bath: 0.9 }),
   imugi: specialSheet('imugi', 130, 119, 0.5472, 110, 0.59, 4, 24, { walk: 1.5, bath: 0.8 }),
+  kaonashi: specialSheet('kaonashi', 144, 154, 0.5322, 150, 0.455, 3, 18),
   // 일반 손님도 같은 3줄 형식 시트를 쓸 수 있다 (h: 초상화 크기 맞춤용 키)
   moss: { ...specialSheet('moss', 164, 148, 0.4728, 143, 0.33, 4, 11, { walk: 1.12, bath: 0.78 }), h: 44 },   // 이끼 노인
   // 등롱 요괴: 떠다니는 손님이라 float(px)만큼 바닥에서 띄우고 살짝 오르내린다
   lantern: { ...specialSheet('lantern', 161, 135, 0.5553, 131, 0.32, 4, 14), h: 42, float: 7 },
   fox: { ...specialSheet('fox', 178, 120, 0.489, 116, 0.38, 4, 14), h: 42 },   // 여우불 아가씨
   river: { ...specialSheet('river', 177, 134, 0.4534, 118, 0.42, 4, 12), h: 42, float: 6 },   // 강물 정령 (떠다님)
+  mushroom: { ...specialSheet('mushroom', 139, 144, 0.4658, 140, 0.32, 3, 5), h: 44 },   // 버섯 할멈
+  turtle: { ...specialSheet('turtle', 178, 138, 0.4247, 133, 0.38, 3, 14, { walk: 1.2, bath: 0.9 }), h: 46 },   // 돌거북 신
+  rabbit: { ...specialSheet('rabbit', 146, 165, 0.4828, 158, 0.29, 3, 14, { walk: 1.2, bath: 0.92 }), h: 44 },   // 달토끼
+  crane: { ...specialSheet('crane', 113, 150, 0.4304, 146, 0.36, 3, 16, { walk: 1.13, bath: 0.9, walkN: 7, bathN: 5, happy: 3 }), h: 48 },   // 학 선인
+  frog: { ...specialSheet('frog', 144, 156, 0.5133, 152, 0.31, 3, 14, { walk: 1.15, bath: 0.93, walkN: 7 }), h: 44 },   // 연잎 개구리 신
+  butterfly: { ...specialSheet('butterfly', 132, 159, 0.498, 155, 0.30, 3, 14, { walk: 1.07, bath: 0.95, bathN: 5 }), h: 44, float: 5 },   // 호랑나비 아씨 (날갯짓하며 떠다님)
+  dokkaebi: { ...specialSheet('dokkaebi', 124, 136, 0.4866, 131, 0.35, 3, 12), h: 44 },   // 방망이 도깨비
+  snow: { ...specialSheet('snow', 118, 145, 0.5284, 134, 0.33, 3, 14), h: 44, float: 5 },   // 눈꽃 정령 (떠다님)
 };
 /* 특별한 손님 시트 정의: fw·fh 칸 크기, ax 기준점 가로 위치, foot 발 높이, scale 그릴 크기,
  * idleN 대기 프레임 수, bathY 탕 속에 잠기는 깊이(px),
- * size 걷기·탕 속 줄의 크기 배율 — 원본 시트에서 줄마다 그려진 크기가 달라서 대기 모습 크기에 맞춘다 */
+ * size 걷기·탕 속 줄의 크기 배율 — 원본 시트에서 줄마다 그려진 크기가 달라서 대기 모습 크기에 맞춘다
+ *   walkN·bathN: 걷기·탕 속 프레임 수(기본 6·4), happy: 탕 속에서 기뻐하는 칸 번호(기본 2) */
+/* 탕 속 프레임 순서: 기뻐하는 칸을 뺀 나머지를 두 박자씩 오가다 끝에 기뻐하는 칸 */
+function bathSeq(n, happy) {
+  const rest = [...Array(n).keys()].filter(i => i !== happy);
+  const loop = [...rest, ...rest.slice(1, -1).reverse()].flatMap(i => [i, i]);
+  return [...loop, happy, happy, happy];
+}
 function specialSheet(key, fw, fh, ax, foot, scale, idleN, bathY, size = {}) {
   return {
     src: `assets/chars/${key}.png`, ax, ay: foot / fh, scale, bathY,
@@ -533,8 +550,8 @@ function specialSheet(key, fw, fh, ax, foot, scale, idleN, bathY, size = {}) {
       fw, fh,
       anims: {
         idle:    { row: 0, seq: idleN === 3 ? [0, 1, 2, 1] : [0, 1, 2, 3, 2, 1], fps: 4 },
-        walk:    { row: 1, seq: [0, 1, 2, 3, 4, 5], fps: 9, scale: size.walk || 1 },
-        bath:    { row: 2, seq: [0, 0, 1, 1, 3, 3, 1, 1, 0, 0, 2, 2, 2], fps: 3, scale: size.bath || 1 },
+        walk:    { row: 1, seq: [...Array(size.walkN || 6).keys()], fps: 9, scale: size.walk || 1 },
+        bath:    { row: 2, seq: bathSeq(size.bathN || 4, size.happy ?? 2), fps: 3, scale: size.bath || 1 },
         bathOff: { row: 2, seq: [0, 1], fps: 2, scale: size.bath || 1 },   // 물이 차갑거나 뜨거울 때 — 웃는 얼굴 없이
       },
     },
