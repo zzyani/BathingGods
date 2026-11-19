@@ -405,7 +405,7 @@ function makeDay(day) {
   if (day === 1) {
     return {
       title: '첫 영업', length: 190, guests: 3, twoHerb: 0,
-      pool: POOL_A, forced: POOL_A, keepOrder: true,
+      pool: POOL_A, forced: ['river', 'moss', 'lantern'], keepOrder: true,   // 첫 손님은 가장 느긋한 강물 정령
       intro: '선배 일꾼이 말했다. "손님 말을 잘 듣고, 약재는 정원이랑 연못에서 찾아.\n다 쓴 탕은 꼭 닦아 두고!"',
     };
   }

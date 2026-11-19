@@ -19,7 +19,7 @@ const UI = (() => {
     E = {
       hud: $('#hud'), day: $('#hud-day'), clock: $('#hud-clock'), timefill: $('#hud-timefill'),
       rep: $('#hud-rep'), coins: $('#hud-coins'), clues: $('#hud-clues'),
-      orders: $('#orders'), away: $('#away'), hint: $('#hint'), inv: $('#inventory'), toasts: $('#toasts'),
+      orders: $('#orders'), away: $('#away'), hint: $('#hint'), inv: $('#inventory'),
       tooltip: $('#tooltip'), screen: $('#screen'), modal: $('#modal'),
       btnJournal: $('#btn-journal'), fuelRow: $('#hud-fuel-row'), fuel: $('#hud-fuel'), fuelTxt: $('#hud-fuel-txt'), btnSound: $('#btn-sound'), btnPause: $('#btn-pause'),
     };
@@ -310,7 +310,7 @@ const UI = (() => {
         <div class="thermo-read"><span id="tp-temp">34</span><small>°C</small></div>
         <div class="thermo-bar"><div class="thermo-marks" id="tp-marks"></div><div class="thermo-fill" id="tp-fill"></div></div>
         <div class="thermo-scale"><span>30</span><span>35</span><span>40</span><span>45</span><span>50</span></div>
-        <div class="tp-fuel" id="tp-fuel"><span>🔥 보일러</span><div class="fuel-bar"><div id="tp-fuel-bar" style="height:100%;background:#f0a050"></div></div><span id="tp-fuel-txt"></span></div>
+        <div class="tp-fuel" id="tp-fuel"><span><i class="ic ic-fire"></i>보일러</span><div class="fuel-bar"><div id="tp-fuel-bar" style="height:100%;background:#f0a050"></div></div><span id="tp-fuel-txt"></span></div>
       </div>
       <div id="tp-note" class="tp-note hidden"></div>
       <div class="tp-row">
@@ -428,7 +428,7 @@ const UI = (() => {
         <p class="j-foot">단서 ${n} / ${ids.length} ${n >= CLUES_NEEDED ? '— 이 손님에게 맞는 탕을 떠올릴 수 있다.' : `· ${CLUES_NEEDED}개 모으면 맞이할 수 있다`}</p>`;
     }
     E.modal.innerHTML = `<div class="panel journal">
-      <div class="panel-head"><span>📜 단서 수첩</span><button class="x" data-act="close">✕</button></div>
+      <div class="panel-head"><span><i class="ic ic-journal"></i> 단서 수첩</span><button class="x" data-act="close">✕</button></div>
       <div class="j-tabs">${tabs}</div>
       ${body}
     </div>`;
@@ -544,21 +544,40 @@ const UI = (() => {
       E.inv.innerHTML = html;
     }
 
-    const h = hintText() || '';
-    if (h !== hintSig) {
-      hintSig = h;
-      E.hint.textContent = h;
-      E.hint.classList.toggle('hidden', !h);
+    const hv = hintText() || '';
+    const h = Array.isArray(hv) ? hv[0] : hv, hk = Array.isArray(hv) ? 'hint-' + hv[1] : 'hint';
+    if (h !== hintSig || hk !== hintKind) {
+      hintSig = h; hintKind = hk;
+      if (!msgCur) showMsg();
     }
   }
 
+  // 안내 메시지는 아래쪽 띠 하나로 통일: 알림(toast)이 오면 잠깐 띠에 띄우고, 다 보여 주면 다시 안내 문구로 돌아간다
+  let msgQ = [], msgCur = null, msgTimer = 0, hintKind = 'hint';
   function toast(msg, kind = '') {
-    const d = document.createElement('div');
-    d.className = 'toast ' + kind;
-    d.textContent = msg;
-    E.toasts.appendChild(d);
-    while (E.toasts.children.length > 4) E.toasts.firstChild.remove();
-    setTimeout(() => { d.classList.add('out'); setTimeout(() => d.remove(), 400); }, 2600);
+    if (msgCur && msgCur.msg === msg) { nextMsgLater(); return; }     // 같은 알림 연타는 시간만 연장
+    if (msgQ.some(m => m.msg === msg)) return;
+    msgQ.push({ msg, kind });
+    if (msgQ.length > 3) msgQ.shift();
+    if (!msgCur) nextMsg();
+  }
+  function nextMsg() {
+    msgCur = msgQ.shift() || null;
+    if (msgCur) nextMsgLater();
+    showMsg();
+  }
+  function nextMsgLater() {
+    clearTimeout(msgTimer);
+    const base = msgCur.msg.length > 30 ? 3400 : 2600;
+    msgTimer = setTimeout(nextMsg, msgQ.length ? base * 0.7 : base);
+  }
+  function showMsg() {
+    const m = msgCur || (hintSig ? { msg: hintSig, kind: hintKind } : null);
+    E.hint.classList.toggle('hidden', !m);
+    if (!m) return;
+    E.hint.textContent = m.msg;
+    E.hint.dataset.kind = m.kind || 'info';
+    if (msgCur) { E.hint.classList.remove('pop'); void E.hint.offsetWidth; E.hint.classList.add('pop'); }
   }
 
   function tooltip(it, far, x, y) {
@@ -570,7 +589,7 @@ const UI = (() => {
     E.tooltip.classList.remove('hidden');
   }
   function hideTooltip() { if (E.tooltip) E.tooltip.classList.add('hidden'); }
-  function setSoundIcon(muted) { E.btnSound.textContent = muted ? '🔇' : '🔊'; }
+  function setSoundIcon(muted) { E.btnSound.classList.toggle('muted', muted); }
 
   return {
     init, showScreen, hideScreen, showHUD, title, help, story, dayIntro, dayEnd, shop, ending, album,

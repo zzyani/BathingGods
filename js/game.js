@@ -166,7 +166,6 @@ function beginPlay() {
   UI.hideScreen();
   UI.showHUD(true);
   UI.updateHUD();
-  if (Game.world.day === 1) UI.toast('WASD로 이동, 클릭 또는 Space로 상호작용!', 'good');
 }
 function restartDay() {
   if (!Game.daySnapshot) return;
@@ -201,7 +200,7 @@ function closeBusiness() {
   settleMissedSpecial();
   Sfx.play('bell');
   const left = w.guests.some(g => ['following', 'toTub', 'bathing'].includes(g.state));
-  UI.toast(left ? '영업 시간이 끝났어요! 새 손님은 받지 않고, 안내·목욕 중인 손님만 마무리합니다.' : '영업 시간이 끝났어요!', 'warn');
+  UI.toast('영업 시간이 끝났어요!', 'warn');   // 남은 손님 마무리 방법은 아래 안내 띠가 이어서 알려 준다
 }
 
 function endDay() {
@@ -745,7 +744,7 @@ function startFollow(g) {
   g.repath = 0;
   w.follower = g;
   Sfx.play('pick');
-  UI.toast(`${Util.josa(guestName(g), '이', '가')} 따라옵니다. 준비된 탕을 클릭하세요.`);
+  UI.toast(`${Util.josa(guestName(g), '이', '가')} 따라옵니다.`);
 }
 function sendBack(g) {
   const w = Game.world;
@@ -805,8 +804,7 @@ function updateBathMood(g, dt) {
     g.offTime += dt;
     if (!g.complained) {
       g.complained = true;
-      Sfx.play('bad');
-      UI.toast(`${guestName(g)}: "${diff < 0 ? '물이 식었어!' : '앗, 뜨거워!'}" — ${tub.label}을 클릭해 온도를 맞춰 주세요`, 'warn');
+      Sfx.play('bad');   // 불평과 해결 방법은 안내 띠(hintText)가 경고색으로 계속 보여 준다
     }
   }
   if (g.special) return;
@@ -1106,7 +1104,7 @@ function specialDialog(g) {
           setSpecialChoice(g.type, 'host');
           g.hosted = true; g.known = true; g.state = 'waiting';
           Sfx.play('clue');
-          UI.toast(`${Util.josa(S.name, '을', '를')} 손님으로 맞이했다. 단서 수첩(J)을 떠올려 보자.`, 'kao');
+          UI.toast(`${Util.josa(S.name, '을', '를')} 손님으로 맞이했다.`, 'kao');
         },
       },
       { label: '"죄송해요, 오늘은 모실 수가 없어요."', onClick: () => { setSpecialChoice(g.type, 'refuse'); kaoLeave(g); } },
@@ -1134,7 +1132,7 @@ function kaonashiDialog(g) {
           setSpecialChoice('kaonashi', 'host');
           g.hosted = true; g.known = true; g.state = 'waiting';
           Sfx.play('clue');
-          UI.toast('그를 손님으로 맞이하기로 했다. 단서 수첩(J)을 떠올려 보자.', 'kao');
+          UI.toast('그를 손님으로 맞이하기로 했다.', 'kao');
         },
       },
     ],
@@ -1174,8 +1172,10 @@ function hintText() {
   if (!w || w.demo) return null;
   const p = w.player;
   const cold = w.guests.find(g => g.state === 'bathing' && g.offNow);
-  if (cold) return `${guestName(cold)}의 ${cold.tub.label}이 ${cold.offNow < 0 ? '식었어요' : '너무 뜨거워요'}! 탕을 클릭해 온도를 맞춰 주세요.`;
-  if (w.fuel < BOILER.warnAt) return '보일러 장작이 부족해요. 보일러실의 가마를 클릭해 장작을 넣으세요.';
+  // [문구, 'warn'] 은 경고색으로 표시
+  if (cold) return [`${guestName(cold)}: "${cold.offNow < 0 ? '물이 식었어!' : '앗, 뜨거워!'}" — ${cold.tub.label}을 클릭해 온도를 맞춰 주세요.`, 'warn'];
+  if (w.fuel <= 0) return ['보일러 장작이 떨어져 불이 약해졌어요! 보일러실의 가마를 클릭해 장작을 넣으세요.', 'warn'];
+  if (w.fuel < BOILER.warnAt) return ['보일러 장작이 얼마 남지 않았어요. 보일러실의 가마를 클릭해 장작을 넣으세요.', 'warn'];
   if (w.closed) return '영업 종료 — 안내 중인 손님을 탕에 모시고, 목욕이 끝나기를 기다리세요.';
   if (w.special && w.special.state === 'kWait') return `접수대 옆에 ${guestName(w.special)}이(가) 서 있다. 말을 걸어 보자.`;
   if (w.special && w.special.hosted && !['leaving', 'bathing'].includes(w.special.state)) return `${guestName(w.special)}에게 맞는 탕은? 단서 수첩(J)에 답이 있다.`;
@@ -1205,7 +1205,7 @@ function hintText() {
     if (w.scene !== 'main') return "약재를 챙겼다면 아래쪽 '목욕탕' 문으로 돌아가세요.";
     return `빈 탕을 클릭해 물을 받고, 불을 지펴 ${g.request.temp}°C에 맞춘 뒤 약재를 넣으세요.`;
   }
-  return 'WASD로 이동해 목욕탕을 둘러보세요. 곧 손님이 옵니다.';
+  return 'WASD로 이동, 클릭 또는 Space로 상호작용해요. 곧 손님이 옵니다.';
 }
 
 /* ---------- 메뉴 ---------- */
@@ -1257,7 +1257,7 @@ function updateWorld(dt) {
   w.fuel = Math.max(0, w.fuel - BOILER.idleDrain * (hasGift('fuel') ? 0.7 : 1) * dt);
   if (!w.fuelWarned && w.fuel < BOILER.warnAt) {
     w.fuelWarned = true;
-    UI.toast(w.fuel <= 0 ? '보일러 장작이 떨어졌어요! 불이 약해집니다.' : '보일러 장작이 얼마 남지 않았어요 — 보일러실 가마에 장작을 넣으세요', 'warn');
+    Sfx.play('bad');   // 경고 문구는 안내 띠(hintText)가 경고색으로 보여 준다
   }
   // 열어 둔 탕에서 손님이 나가 탕이 더러워지면 패널 닫기
   if (Game.modal === 'tub' && Game.tub && !['ready', 'occupied'].includes(Game.tub.state)) UI.closeModal();
