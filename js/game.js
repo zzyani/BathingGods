@@ -1021,10 +1021,14 @@ function onHerbSpot(o) {
 function gatherHerb(h) {
   const w = Game.world, p = w.player;
   if (w.inventory.length >= invCap()) return;
-  w.inventory.push(h);
-  p.busy = 0.3; p.busyTotal = 0.3; p.busyLabel = '';
-  addFloat(p.x, p.y, `+${HERBS[h].name}`, '#eaffd2', 14, 56, 1.8, w.scene);
-  Sfx.play('pick');
+  p.busy = GATHER_TIME; p.busyTotal = GATHER_TIME; p.busyLabel = '채집 중';
+  p.target = null; p.path = null;
+  p.busyDone = () => {   // 게이지가 다 찬 뒤에야 바구니에 넣는다
+    if (w.inventory.length >= invCap()) { UI.toast('바구니가 가득 찼어요!', 'warn'); Sfx.play('bad'); return; }
+    w.inventory.push(h);
+    addFloat(p.x, p.y, `+${HERBS[h].name}`, '#eaffd2', 14, 56, 1.8, w.scene);
+    Sfx.play('pick');
+  };
 }
 function dropInventory(i) {
   const w = Game.world;

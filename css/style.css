@@ -394,7 +394,7 @@ kbd { display: inline-block; padding: 0 6px; border-radius: 4px; border: 1px sol
 /* 단서 번호: 책갈피 리본 (못 찾음 = 크림색, 찾음 = 빨간색) */
 .j-num { flex: 0 0 26px; height: 28px; display: grid; place-items: start center; padding-top: 3px; font-size: 13px; background: url("../assets/ui/rb_cream.png") center / contain no-repeat; color: #9a8a74; font-weight: 700; }
 .j-item.got .j-num { background-image: url("../assets/ui/rb_red.png"); color: #fff; }
-.j-foot { margin: 12px 0 0; font-size: 13px; color: var(--kao); font-weight: 700; }
+.j-foot { margin: 12px 0 0; padding-left: 38px; font-size: 13px; color: var(--kao); font-weight: 700; }   /* 왼쪽 아래 매화 무늬를 피해 오른쪽으로 */
 .pause-panel { width: min(420px, 100%); text-align: center; }
 .pause-panel .menu .btn { width: 100%; }
 

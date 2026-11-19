@@ -1023,7 +1023,7 @@ const Render = (() => {
   }
   function busyBar(ctx, p) {
     const x = sx(p.x, p.y), y = sy(p.x, p.y) - 58;
-    const r = 1 - p.busy / p.busyTotal;
+    const r = Math.min(1, (1 - p.busy / p.busyTotal) * 1.12);   // 끝나기 직전에 꽉 찬 게이지가 보이도록
     rrect(ctx, x - 22, y - 4, 44, 8, 4, 'rgba(20,12,10,0.8)');
     rrect(ctx, x - 21, y - 3, 42 * r, 6, 3, '#9fd6f0');
     if (p.busyLabel) text(ctx, p.busyLabel, x, y - 12, 11, '#fff', { bold: true, stroke: 'rgba(0,0,0,0.6)' });
