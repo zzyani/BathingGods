@@ -51,7 +51,7 @@ const SCENES = {
     labels: [
       { text: '욕탕', x: 14.6, y: 5.0 },
       { text: '복도', x: 8.0, y: 8.2 },
-      { text: '보일러실', x: 9.6, y: 11.4 },
+      { text: '보일러실', x: 10.7, y: 10.6 },   // 가마 이미지에 가리지 않게 오른쪽 위로
       { text: '접수대', x: 18.6, y: 14.6 },
     ],
     // 벽 등롱 (벽면 아래 모서리 기준 좌표, wall: 붙어 있는 벽 타일)
@@ -122,18 +122,18 @@ const OBJECT_DEFS = [
   { id: 'tub2', kind: 'tub', x: 12, y: 1, w: 2, h: 2, label: '탕 2' },
   { id: 'tub3', kind: 'tub', x: 15, y: 1, w: 2, h: 2, label: '탕 3' },
   { id: 'tub4', kind: 'tub', x: 18, y: 1, w: 2, h: 2, label: '탕 4', requires: 'tub4' },
-  { id: 'yuja', scene: 'garden', kind: 'tree', x: 1, y: 1, w: 1, h: 1, label: '유자나무', herbs: ['yuja'], pickH: 80 },
-  { id: 'ssuk', scene: 'garden', kind: 'patch', x: 8, y: 2, w: 2, h: 1, label: '쑥밭', herbs: ['ssuk'], pickH: 18 },
+  { id: 'yuja', scene: 'garden', kind: 'tree', x: 1, y: 1, w: 1, h: 1, label: '유자나무', herbs: ['yuja'], pickH: 84 },
+  { id: 'ssuk', scene: 'garden', kind: 'patch', x: 8, y: 2, w: 2, h: 1, label: '쑥밭', herbs: ['ssuk'], pickH: 28, asset: 'patch_ssuk' },
   { id: 'pond', scene: 'garden', kind: 'pond', x: 2, y: 2, w: 3, h: 2, label: '연못', herbs: ['changpo', 'yeon'], block: false, pickH: 14 },
-  { id: 'shelfA', scene: 'storage', kind: 'shelf', x: 1, y: 1, w: 1, h: 2, label: '약재 선반', herbs: ['gamcho', 'gyepi'], pickH: 64 },
-  { id: 'gukhwa', scene: 'garden', kind: 'patch', x: 8, y: 6, w: 2, h: 1, label: '국화밭', herbs: ['gukhwa'], pickH: 18, flower: '#f0a92e' },
-  { id: 'pine', scene: 'garden', kind: 'pine', x: 10, y: 4, w: 1, h: 1, label: '소나무', herbs: ['solip'], pickH: 90 },
-  { id: 'jars', scene: 'storage', kind: 'jar', x: 7, y: 1, w: 2, h: 1, label: '대추 항아리', herbs: ['daechu'], pickH: 36 },
-  { id: 'ginger', scene: 'storage', kind: 'basket', x: 10, y: 4, w: 1, h: 1, label: '생강 바구니', herbs: ['saenggang'], pickH: 24 },
-  { id: 'shelfB', scene: 'storage', kind: 'shelf', x: 3, y: 1, w: 2, h: 1, label: '약재 선반', herbs: ['bakha'], pickH: 64 },
-  { id: 'sulfur', kind: 'crate', x: 8, y: 11, w: 1, h: 1, label: '유황 소금 상자', herbs: ['yuhwang'], pickH: 26 },
-  { id: 'furnace', kind: 'furnace', x: 9, y: 13, w: 2, h: 2, label: '보일러 가마', pickH: 90 },
-  { id: 'counter', kind: 'counter', x: 16, y: 10, w: 3, h: 1, label: '접수대', pickH: 34,
+  { id: 'shelfA', scene: 'storage', kind: 'shelf', x: 1, y: 1, w: 1, h: 3, label: '약재 선반', herbs: ['gamcho', 'gyepi'], pickH: 110, asset: 'shelf_a' },
+  { id: 'gukhwa', scene: 'garden', kind: 'patch', x: 8, y: 6, w: 2, h: 1, label: '국화밭', herbs: ['gukhwa'], pickH: 28, flower: '#f0a92e', asset: 'patch_gukhwa' },
+  { id: 'pine', scene: 'garden', kind: 'pine', x: 6, y: 1, w: 1, h: 1, label: '소나무', herbs: ['solip'], pickH: 100 },
+  { id: 'jars', scene: 'storage', kind: 'jar', x: 7, y: 1, w: 2, h: 1, label: '대추 항아리', herbs: ['daechu'], pickH: 50 },
+  { id: 'ginger', scene: 'storage', kind: 'basket', x: 10, y: 4, w: 1, h: 1, label: '생강 바구니', herbs: ['saenggang'], pickH: 40 },
+  { id: 'shelfB', scene: 'storage', kind: 'shelf', x: 3, y: 1, w: 3, h: 1, label: '약재 선반', herbs: ['bakha'], pickH: 90, asset: 'shelf_b' },
+  { id: 'sulfur', kind: 'crate', x: 8, y: 10, w: 1, h: 1, label: '유황 소금 상자', herbs: ['yuhwang'], pickH: 34 },
+  { id: 'furnace', kind: 'furnace', x: 9, y: 13, w: 2, h: 2, label: '보일러 가마', pickH: 110 },
+  { id: 'counter', kind: 'counter', x: 16, y: 10, w: 3, h: 1, label: '접수대', pickH: 40,
     flavor: '오늘의 손님 명부. 손님은 접수대 앞 방석에서 기다린다.' },
 ];
 
@@ -162,19 +162,20 @@ const GUEST_RELATIONS = {
 const COMPANY_TIP = 10;
 
 /* ---------- 약재 ---------- */
+/* icon: 약재 아이콘 이미지(정사각 투명 PNG). 있으면 글자 배지 대신 그림으로 표시 */
 const HERBS = {
-  ssuk:    { name: '쑥',       short: '쑥', color: '#7da453', where: '정원(복도 왼쪽 끝 위쪽 문) 쑥밭' },
-  yuja:    { name: '유자',     short: '유', color: '#e9b824', where: '정원(복도 왼쪽 끝 위쪽 문) 유자나무' },
-  changpo: { name: '창포',     short: '창', color: '#5b8fc0', where: '정원(복도 왼쪽 끝 위쪽 문) 연못' },
-  yeon:    { name: '연꽃',     short: '연', color: '#e88bb0', where: '정원(복도 왼쪽 끝 위쪽 문) 연못' },
-  gamcho:  { name: '감초',     short: '감', color: '#c4914f', where: '약재 창고(복도 왼쪽 끝 아래쪽 문) 선반' },
-  gyepi:   { name: '계피',     short: '계', color: '#a5532e', where: '약재 창고(복도 왼쪽 끝 아래쪽 문) 선반' },
-  bakha:   { name: '박하',     short: '박', color: '#4fbfa8', where: '약재 창고(복도 왼쪽 끝 아래쪽 문) 선반' },
-  yuhwang: { name: '유황 소금', short: '황', color: '#cfc23c', where: '보일러실 상자' },
-  gukhwa:  { name: '국화',     short: '국', color: '#f0a92e', where: '정원(복도 왼쪽 끝 위쪽 문) 국화밭' },
-  solip:   { name: '솔잎',     short: '솔', color: '#2f6b45', where: '정원(복도 왼쪽 끝 위쪽 문) 소나무' },
-  daechu:  { name: '대추',     short: '대', color: '#9b2d2d', where: '약재 창고(복도 왼쪽 끝 아래쪽 문) 항아리' },
-  saenggang: { name: '생강',   short: '생', color: '#d98c3a', where: '약재 창고(복도 왼쪽 끝 아래쪽 문) 바구니' },
+  ssuk:    { name: '쑥',       short: '쑥', color: '#7da453', where: '정원(복도 왼쪽 끝 위쪽 문) 쑥밭', icon: 'assets/herbs/ssuk.png' },
+  yuja:    { name: '유자',     short: '유', color: '#e9b824', where: '정원(복도 왼쪽 끝 위쪽 문) 유자나무', icon: 'assets/herbs/yuja.png' },
+  changpo: { name: '창포',     short: '창', color: '#5b8fc0', where: '정원(복도 왼쪽 끝 위쪽 문) 연못', icon: 'assets/herbs/changpo.png' },
+  yeon:    { name: '연꽃',     short: '연', color: '#e88bb0', where: '정원(복도 왼쪽 끝 위쪽 문) 연못', icon: 'assets/herbs/yeon.png' },
+  gamcho:  { name: '감초',     short: '감', color: '#c4914f', where: '약재 창고(복도 왼쪽 끝 아래쪽 문) 선반', icon: 'assets/herbs/gamcho.png' },
+  gyepi:   { name: '계피',     short: '계', color: '#a5532e', where: '약재 창고(복도 왼쪽 끝 아래쪽 문) 선반', icon: 'assets/herbs/gyepi.png' },
+  bakha:   { name: '박하',     short: '박', color: '#4fbfa8', where: '약재 창고(복도 왼쪽 끝 아래쪽 문) 선반', icon: 'assets/herbs/bakha.png' },
+  yuhwang: { name: '유황 소금', short: '황', color: '#cfc23c', where: '보일러실 상자', icon: 'assets/herbs/yuhwang.png' },
+  gukhwa:  { name: '국화',     short: '국', color: '#f0a92e', where: '정원(복도 왼쪽 끝 위쪽 문) 국화밭', icon: 'assets/herbs/gukhwa.png' },
+  solip:   { name: '솔잎',     short: '솔', color: '#2f6b45', where: '정원(복도 왼쪽 끝 위쪽 문) 소나무', icon: 'assets/herbs/solip.png' },
+  daechu:  { name: '대추',     short: '대', color: '#9b2d2d', where: '약재 창고(복도 왼쪽 끝 아래쪽 문) 항아리', icon: 'assets/herbs/daechu.png' },
+  saenggang: { name: '생강',   short: '생', color: '#d98c3a', where: '약재 창고(복도 왼쪽 끝 아래쪽 문) 바구니', icon: 'assets/herbs/saenggang.png' },
 };
 
 /* ---------- 손님(신령) ----------
@@ -325,51 +326,51 @@ const SPECIALS = {
 /* 단서 — guest: 특별한 손님, phase: 0이면 첫째 날, 1이면 둘째 날. npc: 다가가 말을 거는 그림자 단서 */
 const CLUES = {
   // 강의 신
-  reed: { guest: 'riverGod', phase: 0, name: '낯선 갈대 다발', scene: 'garden', x: 5.5, y: 3.5, icon: 'reed',
+  reed: { guest: 'riverGod', phase: 0, name: '낯선 갈대 다발', scene: 'garden', x: 5.5, y: 3.5, icon: 'reed', img: 'assets/clues/reed.png',
     text: '연못가에 강에서나 자라는 굵은 갈대가 한 다발 놓여 있다. 창포 냄새가 짙게 배어 있다.' },
-  scale: { guest: 'riverGod', phase: 0, name: '은빛 비늘', scene: 'storage', x: 6.5, y: 6.5, icon: 'scale',
+  scale: { guest: 'riverGod', phase: 0, name: '은빛 비늘', scene: 'storage', x: 6.5, y: 6.5, icon: 'scale', img: 'assets/clues/scale.png',
     text: '창고 바닥에 손바닥만 한 은빛 비늘이 떨어져 있다.\n"강물이 제일 좋을 때는 39도쯤이지." 비늘을 본 선배 일꾼이 중얼거렸다.' },
-  wetprint: { guest: 'riverGod', phase: 1, name: '젖은 발자국', x: 11.5, y: 4.5, icon: 'print',
+  wetprint: { guest: 'riverGod', phase: 1, name: '젖은 발자국', x: 11.5, y: 4.5, icon: 'print', img: 'assets/clues/wetprint.png',
     text: '욕탕 바닥에 물기 어린 발자국이 줄지어 있다. 발자국마다 작은 조약돌이 하나씩. 누군가 아주 먼 길을 걸어온 모양이다.' },
   riverShadow: { guest: 'riverGod', phase: 1, name: '진흙투성이 그림자', x: 12.5, y: 7.5, npc: true,
     meet: { text: '……\n(복도에 진흙을 뒤집어쓴 손님이 서 있다. 발밑에 흙탕물이 고인다.)', button: '저기… 길을 잃으셨어요?' },
     text: '진흙 손님은 "강이 더러워져 쉴 곳을 찾고 있소…"라고 말하고 물안개처럼 흩어졌다. 몹시 지쳐 보였다.' },
   // 거미 할아범
-  thread: { guest: 'spiderElder', phase: 0, name: '반짝이는 거미줄', scene: 'storage', x: 9.5, y: 7.5, icon: 'thread',
+  thread: { guest: 'spiderElder', phase: 0, name: '반짝이는 거미줄', scene: 'storage', x: 9.5, y: 7.5, icon: 'thread', img: 'assets/clues/thread.png',
     text: '창고 선반 사이에 은실 같은 거미줄이 쳐져 있다. 거미줄 끝에 작은 쪽지가 매달려 있다.\n"뼈마디가 쑤시니 뜨끈하게, 44도."' },
-  spool: { guest: 'spiderElder', phase: 0, name: '작은 실타래', x: 10.5, y: 10.5, icon: 'spool',
+  spool: { guest: 'spiderElder', phase: 0, name: '작은 실타래', x: 10.5, y: 10.5, icon: 'spool', img: 'assets/clues/spool.png', upright: true,
     text: '보일러실 구석에서 손톱만 한 실타래를 주웠다. 가마 옆 따뜻한 자리를 좋아하는 누군가가 두고 간 것 같다.' },
-  wrapper: { guest: 'spiderElder', phase: 1, name: '감초 사탕 껍질', scene: 'garden', x: 11.5, y: 7.5, icon: 'wrapper',
+  wrapper: { guest: 'spiderElder', phase: 1, name: '감초 사탕 껍질', scene: 'garden', x: 11.5, y: 7.5, icon: 'wrapper', img: 'assets/clues/wrapper.png',
     text: '정원 바위 위에 감초 사탕 껍질이 잔뜩 쌓여 있다. 감초처럼 달큰한 것을 무척 좋아하는 손님인가 보다.' },
   spiderShadow: { guest: 'spiderElder', phase: 1, name: '여덟 다리 그림자', scene: 'storage', x: 5.5, y: 4.5, npc: true,
     meet: { text: '……\n(천장에서 실을 타고 동그란 그림자가 내려왔다.)', button: '안녕하세요…?' },
     text: '동그란 거미 노인이 꾸벅 인사했다. "허허, 실 잣느라 허리가 남아나질 않는구먼." 그러고는 다시 천장으로 올라가 버렸다.' },
   // 산신 할머니
-  pinecone: { guest: 'sansin', phase: 0, name: '솔방울 세 개', scene: 'garden', x: 9.5, y: 4.5, icon: 'pinecone',
+  pinecone: { guest: 'sansin', phase: 0, name: '솔방울 세 개', scene: 'garden', x: 6.6, y: 2.5, icon: 'pinecone', img: 'assets/clues/pinecone.png', upright: true,
     text: '소나무 아래 솔방울 세 개가 가지런히 놓여 있다. 누군가 솔잎 향을 찾아 이곳에 들른 것 같다.' },
-  fur: { guest: 'sansin', phase: 0, name: '줄무늬 털 뭉치', x: 4.5, y: 7.5, icon: 'fur',
+  fur: { guest: 'sansin', phase: 0, name: '줄무늬 털 뭉치', x: 4.5, y: 7.5, icon: 'fur', img: 'assets/clues/fur.png',
     text: '복도에 주황빛 줄무늬 털 뭉치가 떨어져 있다. 커다란 고양이…일까? 아니면…' },
-  mountainLetter: { guest: 'sansin', phase: 1, name: '산에서 온 편지', scene: 'storage', x: 2.5, y: 5.5, icon: 'note',
+  mountainLetter: { guest: 'sansin', phase: 1, name: '산에서 온 편지', scene: 'storage', x: 2.5, y: 5.5, icon: 'note', img: 'assets/clues/mountainLetter.png',
     text: '"산바람에 몸이 식었으니 뜨겁게, 45도로 데워 주게. — 산 위에 사는 이가"' },
   sansinShadow: { guest: 'sansin', phase: 1, name: '흰 머리의 노인', scene: 'garden', x: 6.5, y: 7.5, npc: true,
     meet: { text: '……\n(정원에 흰 머리를 길게 늘어뜨린 노인이 지팡이를 짚고 서 있다.)', button: '어르신, 어떻게 오셨어요?' },
     text: '노인의 발치에서 새끼 호랑이가 꼬리를 흔들었다. "정성 있는 아이에겐 복을 주지." 노인은 웃으며 바람처럼 사라졌다.' },
   // 구름 이무기
-  cloudScale: { guest: 'imugi', phase: 0, name: '남빛 비늘', scene: 'garden', x: 11.5, y: 1.5, icon: 'cloud',
+  cloudScale: { guest: 'imugi', phase: 0, name: '남빛 비늘', scene: 'garden', x: 11.5, y: 1.5, icon: 'cloud', img: 'assets/clues/cloudScale.png',
     text: '정원 구석에 금빛 무늬가 새겨진 남빛 비늘이 떨어져 있다. 손에 올리자 스르르 안개가 되어 사라졌다. 수줍음이 많은 손님 같다.' },
-  mintMist: { guest: 'imugi', phase: 0, name: '박하 향 안개', scene: 'storage', x: 8.5, y: 3.5, icon: 'mint',
+  mintMist: { guest: 'imugi', phase: 0, name: '박하 향 안개', scene: 'storage', x: 8.5, y: 3.5, icon: 'mint', img: 'assets/clues/mintMist.png', upright: true,
     text: '창고 안에 박하 향이 섞인 안개가 낮게 깔려 있다. 안개가 지나간 자리에 박하 잎이 몇 장 흩어져 있다.' },
-  wish: { guest: 'imugi', phase: 1, name: '하늘에 띄운 소원', x: 20.5, y: 5.5, icon: 'note',
+  wish: { guest: 'imugi', phase: 1, name: '하늘에 띄운 소원', x: 20.5, y: 5.5, icon: 'note', img: 'assets/clues/wish.png',
     text: '욕탕 창가에 소원지가 걸려 있다.\n"용이 되기 전에 몸을 정갈히 하고 싶어요. 너무 뜨거우면 구름이 흩어지니 41도로."' },
   imugiShadow: { guest: 'imugi', phase: 1, name: '긴 그림자', x: 19.5, y: 7.5, npc: true,
     meet: { text: '……\n(복도 천장을 따라 기다란 그림자가 스르륵 움직인다.)', button: '거기 누구 있어요?' },
     text: '여의주를 품은 이무기가 부끄러운 듯 고개를 숨겼다. "천 년을 기다렸는데… 아직 용이 못 됐어요."' },
   // 얼굴 없는 손님
-  mask: { guest: 'kaonashi', phase: 0, name: '깨진 가면 조각', scene: 'garden', x: 1.5, y: 4.5, icon: 'mask',
+  mask: { guest: 'kaonashi', phase: 0, name: '깨진 가면 조각', scene: 'garden', x: 1.5, y: 4.5, icon: 'mask', img: 'assets/clues/mask.png',
     text: '연못가에서 하얀 가면 조각을 주웠다. 희미하게 연꽃 향이 배어 있다.' },
-  gold: { guest: 'kaonashi', phase: 0, name: '흙으로 변한 금덩이', scene: 'storage', x: 1.5, y: 7.5, icon: 'gold',
+  gold: { guest: 'kaonashi', phase: 0, name: '흙으로 변한 금덩이', scene: 'storage', x: 1.5, y: 7.5, icon: 'gold', img: 'assets/clues/gold.png', upright: true,
     text: '창고 구석에서 반짝이던 금덩이가, 손에 쥐자 흙으로 부서졌다. 누군가 금으로 마음을 사려 했던 걸까.' },
-  note: { guest: 'kaonashi', phase: 1, name: '일꾼의 쪽지', x: 8.5, y: 10.5, icon: 'note',
+  note: { guest: 'kaonashi', phase: 1, name: '일꾼의 쪽지', x: 8.5, y: 10.5, icon: 'note', img: 'assets/clues/note.png',
     text: '"검은 그림자가 머물다 간 자리는 미지근했다. 꼭 사람 체온 같았어. 37도쯤?"' },
   shadow: { guest: 'kaonashi', phase: 1, name: '외로운 그림자', x: 2.5, y: 7.5, npc: true,
     meet: { text: '……\n(복도 끝의 검은 손님이 가만히 이쪽을 바라보고 있다.)', button: '저기… 괜찮으세요?' },
@@ -495,6 +496,21 @@ const SPECIAL_ENDING = [
  */
 const ASSET_MANIFEST = {
   title_bg: { src: 'assets/title/title_bg.webp' },
+  // 오브젝트: 종류(kind) 키로 등록하면 코드 그림 대신 그려진다. w·h는 화면 표시 크기(파일은 2배 해상도),
+  // ax·ay는 바닥 칸 가운데가 놓일 이미지 속 위치(비율)
+  counter: { src: 'assets/objects/counter.png', w: 124, h: 103, ax: 0.504, ay: 0.712 },   // 접수대 3×1 (원본을 좌우 반전)
+  // 쑥밭·국화밭은 같은 patch 종류라 오브젝트의 asset 값으로 그림을 나눈다 (2×1 · 원본을 좌우 반전하고 세로로 눌러 2:1 각도에 맞춤)
+  patch_ssuk: { src: 'assets/objects/patch_ssuk.png', w: 105, h: 64, ax: 0.500, ay: 0.570 },
+  patch_gukhwa: { src: 'assets/objects/patch_gukhwa.png', w: 105, h: 64, ax: 0.500, ay: 0.569 },
+  // 약재 선반 두 개는 방향이 달라 asset 값으로 그림을 나눈다. 원본이 정면에 가까운 시점이라 기울여(전단) 2:1 각도에 맞추고, 뒷면을 벽에 붙임
+  shelf_a: { src: 'assets/objects/shelf_a.png', w: 113, h: 139, ax: 0.527, ay: 0.804 },   // 왼쪽 벽 선반 1×3 (앞면이 +x 쪽) · 오른쪽 선반과 같은 앞면 폭 2.7칸
+  shelf_b: { src: 'assets/objects/shelf_b.png', w: 116, h: 123, ax: 0.487, ay: 0.762 },   // 뒤쪽 벽 선반 3×1 (앞면이 +y 쪽) · 세로는 누르지 않고 기울이기만 함
+  jar: { src: 'assets/objects/jar.png', w: 104, h: 75, ax: 0.499, ay: 0.773 },        // 대추 항아리 무리 2×1 (원본 좌우 반전: 큰 항아리를 벽이 높은 왼쪽으로 · 벽에 걸치지 않게 조금 앞으로)
+  basket: { src: 'assets/objects/basket.png', w: 80, h: 65, ax: 0.500, ay: 0.865 },   // 생강 바구니 무리 1×1 (칸 양옆으로 조금 넘침)
+  tree: { src: 'assets/objects/tree.png', w: 81, h: 84, ax: 0.510, ay: 0.940, shadow: 24, sway: 2.6 },   // 유자나무 1×1 · 기준점은 줄기 밑동 · sway: 바람에 꼭대기가 흔들리는 폭(px)
+  pine: { src: 'assets/objects/pine.png', w: 91, h: 106, ax: 0.466, ay: 0.944, shadow: 24, sway: 2.2 },   // 소나무 1×1
+  crate: { src: 'assets/objects/crate.png', w: 56, h: 42, ax: 0.499, ay: 0.671 },   // 유황 소금 상자 1×1 (원본 30° 시점을 세로로 눌러 바닥 2:1 각도에 맞춤)
+  furnace: { src: 'assets/objects/furnace.png', w: 127, h: 175, ax: 0.485, ay: 0.821 },   // 보일러 가마 2×2 (원본의 장작더미는 지움) · 불구멍 연출은 render.js furnaceFire
   // 플레이어: 91×114 칸, 1줄 대기(눈 깜빡임) · 2줄 걷기 8프레임 · 3줄 앉아서 작업
   // 걷기 프레임은 모두 대기 0번의 머리를 그대로 붙여 씀 (걸을 때 머리 크기가 바뀌지 않게)
   chihiro: {
@@ -534,6 +550,10 @@ const ASSET_MANIFEST = {
   dokkaebi: { ...specialSheet('dokkaebi', 124, 136, 0.4866, 131, 0.35, 3, 12), h: 44 },   // 방망이 도깨비
   snow: { ...specialSheet('snow', 118, 145, 0.5284, 134, 0.33, 3, 14), h: 44, float: 5 },   // 눈꽃 정령 (떠다님)
 };
+// 약재 아이콘도 에셋으로 불러 둔다 (캔버스 말풍선·탕 태그에서 사용) — 키: herb_<약재 id>
+for (const [id, h] of Object.entries(HERBS)) if (h.icon) ASSET_MANIFEST['herb_' + id] = { src: h.icon };
+// 단서 그림 (CLUES[id].img) — 맵 위 단서와 단서 수첩에서 사용 · 키: clue_<단서 id>
+for (const [id, c] of Object.entries(CLUES)) if (c.img) ASSET_MANIFEST['clue_' + id] = { src: c.img };
 /* 특별한 손님 시트 정의: fw·fh 칸 크기, ax 기준점 가로 위치, foot 발 높이, scale 그릴 크기,
  * idleN 대기 프레임 수, bathY 탕 속에 잠기는 깊이(px),
  * size 걷기·탕 속 줄의 크기 배율 — 원본 시트에서 줄마다 그려진 크기가 달라서 대기 모습 크기에 맞춘다

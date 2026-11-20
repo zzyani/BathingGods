@@ -12,7 +12,9 @@ const UI = (() => {
   let tubSig = '', ordersSig = '', invSig = '', hintSig = '', awaySig = '';
 
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const chip = h => `<span class="chip" style="--c:${HERBS[h].color}"><b>${HERBS[h].short}</b>${HERBS[h].name}</span>`;
+  // 약재 표시: 아이콘 그림이 있으면 그림, 없으면 색 동그라미 + 한 글자
+  const herbMark = h => HERBS[h].icon ? `<b class="hic" style="background-image:url('${HERBS[h].icon}')"></b>` : `<b>${HERBS[h].short}</b>`;
+  const chip = h => `<span class="chip" style="--c:${HERBS[h].color}">${herbMark(h)}${HERBS[h].name}</span>`;
   const stars = n => '★'.repeat(n) + '☆'.repeat(5 - n);
 
   function init() {
@@ -378,10 +380,10 @@ const UI = (() => {
     if (sig === tubSig) return;
     tubSig = sig;
     TP.herbs.innerHTML = tub.herbs.length
-      ? tub.herbs.map((h, i) => `<button class="tp-herb" data-h="${i}" style="--c:${HERBS[h].color}"><b>${HERBS[h].short}</b>${HERBS[h].name}</button>`).join('')
+      ? tub.herbs.map((h, i) => `<button class="tp-herb" data-h="${i}" style="--c:${HERBS[h].color}">${herbMark(h)}${HERBS[h].name}</button>`).join('')
       : '<span class="tp-empty">아직 아무것도 넣지 않았다</span>';
     TP.inv.innerHTML = w.inventory.length
-      ? w.inventory.map((h, i) => `<button class="tp-herb" data-h="${i}" style="--c:${HERBS[h].color}"><b>${HERBS[h].short}</b>${HERBS[h].name}</button>`).join('')
+      ? w.inventory.map((h, i) => `<button class="tp-herb" data-h="${i}" style="--c:${HERBS[h].color}">${herbMark(h)}${HERBS[h].name}</button>`).join('')
       : '<span class="tp-empty">바구니가 비었다 — 약재를 먼저 챙겨 오자</span>';
     TP.orders.innerHTML = orders.length
       ? orders.map(g => `<div><span>${esc(guestName(g))}</span>${g.hidden ? '<b>???</b>' : `<b>${g.request.temp}°C</b>${g.request.herbs.map(chip).join('')}`}</div>`).join('')
@@ -423,7 +425,7 @@ const UI = (() => {
         <div class="j-list">${ids.map((id, i) => {
           const c = CLUES[id], got = meta.clues.includes(id);
           return `<div class="j-item ${got ? 'got' : ''}"><div class="j-num">${i + 1}</div><div><b>${got ? esc(c.name) : '???'}</b>
-            <p>${got ? esc(c.text) : `${clueDay(id)}일차, 목욕탕 어딘가에 남아 있다.`}</p></div></div>`;
+            <p>${got ? esc(c.text) : `${clueDay(id)}일차, 목욕탕 어딘가에 남아 있다.`}</p></div>${got && c.img ? `<i class="j-img" style="background-image:url('${c.img}')"></i>` : ''}</div>`;
         }).join('')}</div>
         <p class="j-foot">단서 ${n} / ${ids.length} ${n >= CLUES_NEEDED ? '— 이 손님에게 맞는 탕을 떠올릴 수 있다.' : `· ${CLUES_NEEDED}개 모으면 맞이할 수 있다`}</p>`;
     }
@@ -538,7 +540,7 @@ const UI = (() => {
       for (let i = 0; i < cap; i++) {
         const h = w.inventory[i];
         html += h
-          ? `<div class="slot full" style="--c:${HERBS[h].color}" title="${HERBS[h].name}"><b>${HERBS[h].short}</b><span>${HERBS[h].name}</span><button class="drop" data-drop="${i}" title="버리기">×</button></div>`
+          ? `<div class="slot full" style="--c:${HERBS[h].color}" title="${HERBS[h].name}">${herbMark(h)}<span>${HERBS[h].name}</span><button class="drop" data-drop="${i}" title="버리기">×</button></div>`
           : '<div class="slot"></div>';
       }
       E.inv.innerHTML = html;

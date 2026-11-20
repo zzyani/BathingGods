@@ -186,7 +186,8 @@ const Assets = {
     ctx.restore();
     return true;
   },
-  draw(ctx, key, x, y, flip = false, alpha = 1) {
+  /* skew: 기준점(바닥)은 고정하고 위로 갈수록 옆으로 밀어 기울인다 — 나무 흔들림용 (높이 1px당 밀리는 px) */
+  draw(ctx, key, x, y, flip = false, alpha = 1, skew = 0) {
     const a = this.imgs[key];
     if (!a || !a.img.complete || !a.img.naturalWidth) return false;
     const d = a.def;
@@ -195,6 +196,7 @@ const Assets = {
     ctx.save();
     ctx.globalAlpha *= alpha;
     ctx.translate(x, y);
+    if (skew) ctx.transform(1, 0, skew, 1, 0, 0);
     if (flip) ctx.scale(-1, 1);
     ctx.drawImage(a.img, -w * (d.ax ?? 0.5), -h * (d.ay ?? 1), w, h);
     ctx.restore();

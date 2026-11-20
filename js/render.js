@@ -404,6 +404,24 @@ const Render = (() => {
     ctx.fillStyle = 'rgba(255,230,140,0.7)';
     poly(ctx, [a[0] + 3, a[1] - 8, b[0] - 3, b[1] - 8, b[0] - 3, b[1] - 14, a[0] + 3, a[1] - 14]); ctx.fill();
   }
+  /* 가마 이미지 위 불구멍 연출: 장작이 많을수록 밝게 일렁이고, 떨어지면 어둡게 가린다
+   * 좌표는 가마 이미지(assets/objects/furnace.png)의 불구멍 위치 — 바닥 가운데 기준 화면 px */
+  function furnaceFire(ctx, o, t, x, y) {
+    const fuel = o.fuelRatio ?? 1;
+    const hole = [x + 10, y - 6.3, x + 10, y + 15.4, x + 45, y - 3.5, x + 45, y - 25.2];   // 오른면 불구멍 (평행사변형)
+    const dim = fuel > 0 ? 0.45 * (1 - fuel) : 0.7;
+    if (dim > 0.02) { ctx.fillStyle = `rgba(25,8,4,${dim})`; poly(ctx, hole); ctx.fill(); }
+    const fl = (0.75 + Math.sin(t * 13) * 0.12 + Math.sin(t * 7) * 0.1) * (fuel > 0 ? 0.45 + 0.55 * fuel : 0.15);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const cx = x + 27.5, cy = y - 4.4;
+    const g = ctx.createRadialGradient(cx, cy, 2, cx, cy, 30);
+    g.addColorStop(0, `rgba(255,150,50,${0.38 * fl})`);
+    g.addColorStop(1, 'rgba(255,90,20,0)');
+    ctx.fillStyle = g; ctx.fillRect(cx - 30, cy - 30, 60, 60);
+    ctx.fillStyle = `rgba(255,${150 + fl * 60 | 0},60,${0.22 * fl})`; poly(ctx, hole); ctx.fill();
+    ctx.restore();
+  }
   function counter(ctx, o) {
     box(ctx, o.x, o.y + 0.1, o.w, o.h - 0.2, 28, '#8f2c22', '#5e3a26', '#6e4530');
     const bx = sx(o.x + 2.6, o.y + 0.5), by = sy(o.x + 2.6, o.y + 0.5) - 28;
@@ -414,7 +432,16 @@ const Render = (() => {
   }
   function drawObject(ctx, o, t) {
     if (o.kind !== 'tub' && o.kind !== 'pond') {
-      if (Assets.draw(ctx, o.kind, sx(o.x + o.w / 2, o.y + o.h / 2), sy(o.x + o.w / 2, o.y + o.h / 2))) return;
+      const ox = sx(o.x + o.w / 2, o.y + o.h / 2), oy = sy(o.x + o.w / 2, o.y + o.h / 2);
+      const key = o.asset || o.kind;   // 같은 종류라도 asset 으로 다른 그림을 쓸 수 있다 (쑥밭·국화밭)
+      const ad = Assets.imgs[key];
+      if (ad && ad.def.shadow && ad.img.complete && ad.img.naturalWidth) ell(ctx, ox, oy, ad.def.shadow, ad.def.shadow * 0.42, 'rgba(0,0,0,0.25)');   // 바닥 그림자
+      // 나무 흔들림: 매니페스트 sway(꼭대기가 밀리는 최대 px) · 나무마다 박자를 조금씩 다르게
+      const sway = ad && ad.def.sway ? -(Math.sin(t * 1.2 + hash(o.x, o.y) * 6.28) + Math.sin(t * 0.53 + o.x) * 0.4) * ad.def.sway / 1.4 / (ad.def.h * (ad.def.ay ?? 1)) : 0;
+      if (Assets.draw(ctx, key, ox, oy, false, 1, sway)) {
+        if (o.kind === 'furnace') furnaceFire(ctx, o, t, ox, oy);
+        return;
+      }
     }
     switch (o.kind) {
       case 'tub': tub(ctx, o, t); break;
@@ -899,8 +926,14 @@ const Render = (() => {
   }
   function clueItem(ctx, c, t) {
     const x = sx(c.x, c.y), y = sy(c.x, c.y);
-    const icon = CLUES[c.id].icon;
-    if (icon === 'mask') {
+    const icon = CLUES[c.id].icon, ci = Assets.imgs['clue_' + c.id];
+    let sparkY = y - 18;   // 반짝임 위치 (그림이 있으면 그림 바로 위)
+    if (ci && ci.img.complete && ci.img.naturalWidth) {   // 단서 그림이 있으면 그림으로 — 바닥에 떨어져 있는 느낌: 세로로 눌러 눕히고 밑을 바닥에 붙임
+      const up = CLUES[c.id].upright, s = up ? 24 : 26, h = up ? s : s * 0.62;   // upright: 둥근 물건은 눕히지 않고 바닥에 세워 둠
+      ell(ctx, x, y + 1, 11, 4, 'rgba(0,0,0,0.28)');   // 바닥에 붙은 짙은 그림자
+      ctx.drawImage(ci.img, x - s / 2, y + 3 - h, s, h);
+      sparkY = y + 3 - h - 9;
+    } else if (icon === 'mask') {
       ctx.save(); ctx.translate(x, y - 3); ctx.rotate(-0.5);
       ctx.fillStyle = '#f1ede4';
       ctx.beginPath(); ctx.ellipse(0, 0, 6, 8, 0, Math.PI * 0.15, Math.PI * 1.25); ctx.lineTo(1, -1); ctx.closePath(); ctx.fill();
@@ -940,11 +973,17 @@ const Render = (() => {
       for (const f of [0.35, 0.65]) { ctx.moveTo(sx(c.x - 0.15, c.y - 0.15 + 0.3 * f), sy(c.x - 0.15, c.y - 0.15 + 0.3 * f) - 1); ctx.lineTo(sx(c.x + 0.15, c.y - 0.15 + 0.3 * f), sy(c.x + 0.15, c.y - 0.15 + 0.3 * f) - 1); }
       ctx.stroke();
     }
-    sparkle(ctx, x, y - 18, t, c.x * 3);
+    sparkle(ctx, x, sparkY, t, c.x * 3);
   }
 
   /* ---------- 오버레이 (말풍선 · 태그 · 진행바) ---------- */
   function herbBadge(ctx, h, x, y, r = 7.5) {
+    const ic = Assets.imgs['herb_' + h];
+    if (ic && ic.img.complete && ic.img.naturalWidth) {   // 아이콘 그림이 있으면 그림으로 (글자 배지보다 조금 크게)
+      const s = r * 2.6;
+      ctx.drawImage(ic.img, x - s / 2, y - s / 2, s, s);
+      return;
+    }
     circle(ctx, x, y, r, HERBS[h].color);
     ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
     text(ctx, HERBS[h].short, x, y + 0.5, r * 1.25, '#fff', { bold: true, stroke: 'rgba(0,0,0,0.35)', strokeW: 2 });
@@ -977,11 +1016,12 @@ const Render = (() => {
         const b = bubble(ctx, x, top, 36, 20);
         text(ctx, '???', x, b.cy, 13, '#5b3a7a', { bold: true });
       } else {
-        const n = g.request.herbs.length;
-        const w = 36 + n * 17;
-        const b = bubble(ctx, x, top, w, 22);
+        // 약재 아이콘(지름 약 20px)이 온도 글자·서로와 겹치지 않게 간격을 둔다
+        const n = g.request.herbs.length, first = 44, step = 26;
+        const w = first + (n - 1) * step + 18;
+        const b = bubble(ctx, x, top, w, 24);
         text(ctx, `${g.request.temp}°`, b.bx + 6, b.cy, 13, '#8e2a22', { bold: true, align: 'left' });
-        g.request.herbs.forEach((h, k) => herbBadge(ctx, h, b.bx + 38 + k * 17, b.cy));
+        g.request.herbs.forEach((h, k) => herbBadge(ctx, h, b.bx + first + k * step, b.cy));
       }
       if (!g.noPatience) patienceBar(ctx, x, top + 4, Math.max(0, g.patience / g.patienceMax));
     } else if (g.state === 'following') {
@@ -995,10 +1035,10 @@ const Render = (() => {
     const cyBase = sy(o.x + o.w / 2, o.y + o.h / 2);
     if (o.state === 'ready') {
       const n = o.herbs.length;
-      const w = 36 + n * 17, h = 20, y = cyBase - 46;
+      const first = 42, step = 24, w = first + (n - 1) * step + 16, h = 22, y = cyBase - 46;
       rrect(ctx, cx - w / 2, y - h / 2, w, h, 10, 'rgba(28,18,28,0.78)');
       text(ctx, `${Math.round(o.temp)}°`, cx - w / 2 + 7, y, 12, '#ffe2b8', { bold: true, align: 'left' });
-      o.herbs.forEach((hb, k) => herbBadge(ctx, hb, cx - w / 2 + 38 + k * 17, y, 7));
+      o.herbs.forEach((hb, k) => herbBadge(ctx, hb, cx - w / 2 + first + k * step, y, 7));
     } else if (o.state === 'dirty') {
       const y = cyBase - 40;
       rrect(ctx, cx - 30, y - 10, 60, 20, 10, 'rgba(90,60,30,0.85)');

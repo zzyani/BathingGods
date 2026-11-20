@@ -198,6 +198,19 @@ const ASSET_MANIFEST = {
 - 특별한 손님 키: `riverGod` `spiderElder` `sansin` `imugi` `kaonashi`
 - 캐릭터 키: `chihiro`, `moss` `lantern` `river` `mushroom` `fox` `turtle` `rabbit` `frog` `butterfly` `crane` `dokkaebi` `snow`
 - 오브젝트 키: `tree` `pine` `patch` `shelf` `jar` `basket` `crate` `furnace` `counter` (탕은 상태 표현 때문에 코드 렌더 유지)
+  - 같은 종류인데 그림을 달리하려면 `OBJECT_DEFS` 의 오브젝트에 `asset: '키'` 를 주고 그 키로 매니페스트에 등록
+- 약재 아이콘 (`assets/herbs/`, 12종 모두 적용, 96×96) — `HERBS[id].icon` 에 정사각 투명 PNG 경로를 넣으면 바구니·주문 카드·말풍선·탕 패널의 글자 배지가 그림으로 바뀜 (`ui.js` 의 `herbMark`, `render.js` 의 `herbBadge`)
+- 단서 그림 (`assets/clues/`, 15개 모두 적용) — `CLUES[id].img` 에 정사각 투명 PNG 경로를 넣으면 맵 위 단서와 단서 수첩(찾은 단서 오른쪽)에 그림이 나옴. 없으면 예전 코드 그림
+- 오브젝트 에셋 (`assets/objects/`, 적용됨) — 화면 표시 크기의 2배 해상도 투명 PNG
+  - `counter.png`: 접수대 3×1 (원본을 좌우 반전해 긴 면이 대기석 쪽을 보게 함)
+  - `furnace.png`: 보일러 가마 2×2 (원본 왼쪽 장작더미는 지우고 가려진 몸통을 다시 그림) — 불구멍 위에 장작 양에 따라 밝기가 바뀌는 불빛을 코드로 덧그림 (`render.js` 의 `furnaceFire`)
+  - `crate.png`: 유황 소금 상자 1×1 — 가마 굴뚝에 가리지 않게 보일러실 왼쪽 위 구석으로 한 칸 옮김
+  - `tree.png` / `pine.png`: 유자나무 / 소나무 1×1 — 줄기 밑동을 칸 가운데에 맞추고, 매니페스트의 `shadow`(px) 값으로 바닥 그림자를, `sway`(px) 값으로 바람에 흔들림을 코드로 그림 (밑동은 고정하고 위로 갈수록 기울임)
+    - 소나무는 커진 그림이 쑥밭을 가려서 정원 뒤쪽 (6, 1)로 옮기고, 솔방울 단서도 소나무 옆으로 옮김
+  - `patch_ssuk.png` / `patch_gukhwa.png`: 쑥밭 / 국화밭 2×1 — 둘 다 `patch` 종류라 `OBJECT_DEFS` 의 `asset` 값으로 매니페스트 키를 따로 지정. 원본을 좌우 반전하고 세로로 눌러 2:1 각도에 맞춤
+  - `shelf_a.png` / `shelf_b.png`: 약재 선반 1×3(왼쪽 벽) / 3×1(뒤쪽 벽) — 납작해 보여서 둘 다 3칸으로 넓히고 앞면 폭을 2.7칸으로 맞춤 — `asset` 값으로 나눔. 원본이 정면에 가까운 시점이라 세로선은 두고 기울여(전단) 2:1 각도에 맞추고, 뒷면이 벽에 붙도록 기준점을 잡음
+  - `jar.png` / `basket.png`: 대추 항아리 무리 2×1 / 생강 바구니 무리 1×1 — 둥근 물건 무리라 각도 보정 없이 무리의 바닥 가운데를 칸 가운데에 맞춤
+  - 전체 목록과 남은 교체 후보는 [ASSETS.md](ASSETS.md) 참고
 - 권장 규격: 투명 PNG, 쿼터뷰 시점, 타일 1칸 = 64×32px 기준
 - 타이틀 화면 에셋 (`assets/title/`, 적용됨)
   - `title_bg.webp`: 배경 (`ASSET_MANIFEST.title_bg` 로 등록, 없으면 코드로 그린 노천탕 배경 사용) — 글자 없는 16:9 그림
