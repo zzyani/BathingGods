@@ -135,6 +135,54 @@ const Render = (() => {
     }
   }
 
+  /* 연못 물 일렁임: 물 영역 마스크(pond_water.png) 안에서만 — 퍼지며 사라지는 동그란 물결, 대나무 물길이 떨어지는 자리의 잔물결,
+   * 반짝이는 빛 조각, 천천히 흐르는 밝은 물결 띠. 화면 밖 캔버스에 그린 뒤 마스크로 잘라 얹는다 */
+  let rippleCv = null;
+  function pondRipples(ctx, o, t) {
+    const m = Assets.imgs.pond_water, d = Assets.imgs.pond.def;
+    if (!m || !m.img.complete || !m.img.naturalWidth) return;
+    const W = d.w, H = d.h, K = 2;
+    if (!rippleCv) { rippleCv = document.createElement('canvas'); rippleCv.width = W * K; rippleCv.height = H * K; }
+    const c = rippleCv.getContext('2d');
+    c.setTransform(K, 0, 0, K, 0, 0);
+    c.globalCompositeOperation = 'source-over';
+    c.clearRect(0, 0, W, H);
+    // 천천히 흐르는 밝은 물결 띠 (물 전체가 은은하게 일렁임)
+    for (let k = 0; k < 4; k++) {
+      const yy = H * (0.32 + k * 0.14) + Math.sin(t * 0.8 + k * 1.7) * 2;
+      c.strokeStyle = `rgba(190,240,245,${0.10 + 0.06 * Math.sin(t * 1.3 + k)})`; c.lineWidth = 1.4;
+      c.beginPath();
+      for (let x = 0; x <= W; x += 4) { const y = yy + Math.sin(x * 0.09 + t * 1.6 + k) * 1.6 - x * 0.08; x ? c.lineTo(x, y) : c.moveTo(x, y); }
+      c.stroke();
+    }
+    // 퍼지며 사라지는 동그란 물결 (바닥 각도에 맞춰 납작하게)
+    c.lineWidth = 1;
+    for (let k = 0; k < 5; k++) {
+      const cyc = t * 0.28 + k / 5, ph = cyc % 1, n = Math.floor(cyc);
+      const x = W * (0.42 + hash(k, n) * 0.4), y = H * (0.42 + hash(n, k + 9) * 0.38), r = 2 + ph * 13;
+      c.strokeStyle = `rgba(225,250,255,${(1 - ph) * 0.45})`;
+      c.beginPath(); c.ellipse(x, y, r, r * 0.5, 0, 0, Math.PI * 2); c.stroke();
+    }
+    // 대나무 물길이 떨어지는 자리: 짧은 간격으로 계속 퍼지는 잔물결
+    const sxp = W * d.ax - 36, syp = H * d.ay - 18.6;
+    for (let k = 0; k < 3; k++) {
+      const ph = (t * 0.9 + k / 3) % 1, r = 2 + ph * 9;
+      c.strokeStyle = `rgba(235,252,255,${(1 - ph) * 0.6})`;
+      c.beginPath(); c.ellipse(sxp, syp + 2, r, r * 0.5, 0, 0, Math.PI * 2); c.stroke();
+    }
+    // 반짝이는 빛 조각
+    for (let k = 0; k < 9; k++) {
+      const a = Math.max(0, Math.sin(t * 2.2 + k * 2.4)) * 0.75;
+      if (a < 0.05) continue;
+      const x = W * (0.4 + hash(k, 3) * 0.45), y = H * (0.38 + hash(3, k) * 0.42);
+      c.fillStyle = `rgba(255,255,240,${a})`; c.fillRect(x - 1.5, y, 3, 0.8);
+    }
+    // 물 영역만 남기기
+    c.globalCompositeOperation = 'destination-in';
+    c.drawImage(m.img, 0, 0, W, H);
+    const px = sx(o.x + o.w / 2, o.y + o.h / 2), py = sy(o.x + o.w / 2, o.y + o.h / 2);
+    ctx.drawImage(rippleCv, px - W * d.ax, py - H * d.ay, W, H);
+  }
   function pondDecor(ctx, t) {
     // 연못 가장자리 돌
     for (const [x, y] of [[2, 2], [5, 2], [2, 4], [5, 4], [3.5, 4], [3.5, 2], [2, 3], [5, 3]]) {
@@ -219,9 +267,10 @@ const Render = (() => {
    * 조각 번호를 벽을 따라 이어지는 칸 좌표로 정해서, 이웃한 벽 칸끼리 무늬가 자연스럽게 이어진다 */
   const WALL_SLICES = 4;
   function texFace(ctx, P1, P2, h, key, slice) {
+    if (h < 30) { key = key.replace('wall_', 'wall_low_'); slice = 0; }   // 맨 앞 잘린 낮은 벽(높이 14)은 낮은 벽 그림 (칸마다 한 장)
     const a = Assets.imgs[key];
-    if (!a || !a.img.complete || !a.img.naturalWidth || h < 30) return false;   // 낮은 앞쪽 벽(잘린 단면)은 코드 그대로
-    const sw = a.img.naturalWidth / WALL_SLICES, sh = a.img.naturalHeight;
+    if (!a || !a.img.complete || !a.img.naturalWidth) return false;
+    const sw = a.img.naturalWidth / (a.def.slices || 1), sh = a.img.naturalHeight;
     ctx.save();
     ctx.transform((P2[0] - P1[0]) / sw, (P2[1] - P1[1]) / sw, 0, h / sh, P1[0], P1[1] - h);
     ctx.drawImage(a.img, slice * sw, 0, sw, sh, 0, 0, sw + 0.6, sh);   // +0.6: 칸 사이 이음매 틈 방지
@@ -258,8 +307,6 @@ const Render = (() => {
   function doorPlate(ctx, x, y, label, to) {
     ctx.font = `bold 10px ${SERIF}`;
     const w = Math.ceil(ctx.measureText(label).width) + 12, h = 15, col = PLATE_COLOR[to] || '#5a3a24';
-    ctx.strokeStyle = 'rgba(40,24,14,0.85)'; ctx.lineWidth = 1;   // 팻말을 건 끈
-    ctx.beginPath(); ctx.moveTo(x - w / 2 + 4, y - h / 2); ctx.lineTo(x, y - h / 2 - 5); ctx.lineTo(x + w / 2 - 4, y - h / 2); ctx.stroke();
     rrect(ctx, x - w / 2 - 1.5, y - h / 2 - 1.5, w + 3, h + 3, 4, col);
     rrect(ctx, x - w / 2, y - h / 2, w, h, 3, '#f4e7c9');
     text(ctx, label, x, y + 0.5, 10, col, { bold: true, serif: true });
@@ -310,23 +357,37 @@ const Render = (() => {
   }
   function tub(ctx, o, t) {
     const z = 16;
-    box(ctx, o.x, o.y, o.w, o.h, z, '#c99a66', '#9a6a3f', '#b07d4f');
-    // 나무 테 줄무늬
-    ctx.strokeStyle = 'rgba(80,45,20,0.35)';
-    for (const f of [0.35, 0.7]) {
-      ctx.beginPath();
-      ctx.moveTo(sx(o.x, o.y + o.h), sy(o.x, o.y + o.h) - z * f);
-      ctx.lineTo(sx(o.x + o.w, o.y + o.h), sy(o.x + o.w, o.y + o.h) - z * f);
-      ctx.lineTo(sx(o.x + o.w, o.y), sy(o.x + o.w, o.y) - z * f);
-      ctx.stroke();
+    // 탕 그림(빈 나무 탕)이 있으면 테두리·안쪽은 그림으로, 물·손님·청소 상태는 그 위에 코드로
+    const img = Assets.imgs.tub_empty?.img.naturalWidth;
+    const inset = img ? 0.19 : 0.16;   // 그림의 나무 테 두께 (칸 단위)
+    if (img) {
+      Assets.draw(ctx, 'tub_empty', sx(o.x + o.w / 2, o.y + o.h / 2), sy(o.x + o.w / 2, o.y + o.h / 2) - z);
+    } else {
+      box(ctx, o.x, o.y, o.w, o.h, z, '#c99a66', '#9a6a3f', '#b07d4f');
+      // 나무 테 줄무늬
+      ctx.strokeStyle = 'rgba(80,45,20,0.35)';
+      for (const f of [0.35, 0.7]) {
+        ctx.beginPath();
+        ctx.moveTo(sx(o.x, o.y + o.h), sy(o.x, o.y + o.h) - z * f);
+        ctx.lineTo(sx(o.x + o.w, o.y + o.h), sy(o.x + o.w, o.y + o.h) - z * f);
+        ctx.lineTo(sx(o.x + o.w, o.y), sy(o.x + o.w, o.y) - z * f);
+        ctx.stroke();
+      }
     }
-    const ix = o.x + 0.16, iy = o.y + 0.16, iw = o.w - 0.32, ih = o.h - 0.32;
-    ctx.fillStyle = '#6a4224'; poly(ctx, rectPts(ix, iy, iw, ih, z)); ctx.fill();
+    const ix = o.x + inset, iy = o.y + inset, iw = o.w - inset * 2, ih = o.h - inset * 2;
+    if (!img) { ctx.fillStyle = '#6a4224'; poly(ctx, rectPts(ix, iy, iw, ih, z)); ctx.fill(); }
     let water = null;
     if (o.state === 'ready' || o.state === 'occupied') water = waterColor(o);
     else if (o.state === 'dirty') water = '#6d5d3c';
     if (water) {
-      ctx.fillStyle = water; poly(ctx, rectPts(ix + 0.05, iy + 0.05, iw - 0.05, ih - 0.05, z - 3)); ctx.fill();
+      ctx.save();
+      if (img) {
+        // 그림의 탕 구멍(나무 테 안쪽 가장자리, 높이 z) 안으로만 그린다 → 물이 앞쪽 테를 덮지 않고, 뒤쪽엔 안쪽 벽이 살짝 보임
+        poly(ctx, rectPts(ix, iy, iw, ih, z)); ctx.clip();
+        ctx.fillStyle = water; poly(ctx, rectPts(ix, iy, iw, ih, z - 2.5)); ctx.fill();
+      } else {
+        ctx.fillStyle = water; poly(ctx, rectPts(ix + 0.05, iy + 0.05, iw - 0.05, ih - 0.05, z - 3)); ctx.fill();
+      }
       const cx = sx(o.x + o.w / 2, o.y + o.h / 2), cy = sy(o.x + o.w / 2, o.y + o.h / 2) - z + 3;
       ctx.strokeStyle = o.state === 'dirty' ? 'rgba(210,190,140,0.5)' : 'rgba(255,255,255,0.28)';
       ctx.lineWidth = 1.2;
@@ -338,7 +399,8 @@ const Render = (() => {
       if (o.state === 'dirty') {
         for (let k = 0; k < 7; k++) circle(ctx, cx - 22 + hash(k, 3) * 44, cy - 8 + hash(3, k) * 16, 1.5 + hash(k, k) * 2, 'rgba(235,225,200,0.6)');
       }
-    } else {
+      ctx.restore();
+    } else if (!img) {
       ctx.fillStyle = '#8a5f3a'; poly(ctx, rectPts(ix + 0.05, iy + 0.05, iw - 0.05, ih - 0.05, z - 7)); ctx.fill();
     }
     if (o.state === 'occupied' && o.guest && o.guest.state === 'bathing') {
@@ -350,8 +412,7 @@ const Render = (() => {
       ctx.strokeStyle = 'rgba(255,255,255,0.45)';
       ctx.beginPath(); ctx.ellipse(cx, cy, 15 + Math.sin(t * 3) * 1.5, 4.5, 0, 0, Math.PI * 2); ctx.stroke();
     }
-    ctx.strokeStyle = 'rgba(255,232,190,0.4)';
-    poly(ctx, rectPts(o.x, o.y, o.w, o.h, z)); ctx.stroke();
+    if (!img) { ctx.strokeStyle = 'rgba(255,232,190,0.4)'; poly(ctx, rectPts(o.x, o.y, o.w, o.h, z)); ctx.stroke(); }
   }
   function tree(ctx, o, t) {
     const cx = sx(o.x + 0.5, o.y + 0.5), cy = sy(o.x + 0.5, o.y + 0.5);
@@ -493,6 +554,14 @@ const Render = (() => {
     if (o.kind !== 'tub') {
       const ox = sx(o.x + o.w / 2, o.y + o.h / 2), oy = sy(o.x + o.w / 2, o.y + o.h / 2);
       const key = o.asset || o.kind;   // 같은 종류라도 asset 으로 다른 그림을 쓸 수 있다 (쑥밭·국화밭)
+      const lf = Assets.imgs[key + '_leaf'], bs = Assets.imgs[key + '_base'];
+      if (lf?.img.naturalWidth && bs?.img.naturalWidth) {
+        // 밭: 상자는 그대로, 식물만 밑동을 고정하고 살랑살랑 (두 박자를 섞어 바람결처럼)
+        Assets.draw(ctx, key + '_base', ox, oy);
+        const sk = -(Math.sin(t * 1.7 + o.x * 1.3) + 0.5 * Math.sin(t * 2.9 + o.y)) / 1.5 * 1.6 / (lf.def.h * lf.def.ay);
+        Assets.draw(ctx, key + '_leaf', ox, oy, false, 1, sk);
+        return;
+      }
       const ad = Assets.imgs[key];
       if (ad && ad.def.shadow && ad.img.complete && ad.img.naturalWidth) ell(ctx, ox, oy, ad.def.shadow, ad.def.shadow * 0.42, 'rgba(0,0,0,0.25)');   // 바닥 그림자
       // 나무 흔들림: 매니페스트 sway(꼭대기가 밀리는 최대 px) · 나무마다 박자를 조금씩 다르게
@@ -1187,7 +1256,7 @@ const Render = (() => {
     if (sid === 'garden') {
       // 연못 그림은 바닥처럼 맨 아래 층에 그린다 (연못 옆을 지나는 주인공·손님이 가려지지 않게). 그림이 없으면 코드 연못
       const pond = Assets.imgs.pond?.img.naturalWidth && w.objects.find(o => o.kind === 'pond');
-      if (pond) drawObject(ctx, pond, t); else pondDecor(ctx, t);
+      if (pond) { drawObject(ctx, pond, t); pondRipples(ctx, pond, t); } else pondDecor(ctx, t);
     }
     floorDecor(ctx, w, t, hover);
 

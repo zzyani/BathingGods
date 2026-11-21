@@ -509,11 +509,15 @@ const ASSET_MANIFEST = {
   door_garden: { src: 'assets/objects/door_garden.png', w: 45, h: 83, ax: 0.860, ay: 0.998 },    // 정원으로 (솔 무늬 노렌·석등)
   door_storage: { src: 'assets/objects/door_storage.png', w: 40, h: 73, ax: 0.891, ay: 0.997 },  // 약재 창고로 (잎 간판·약재 주머니)
   door_main: { src: 'assets/objects/door_main.png', w: 40, h: 74, ax: 0.893, ay: 0.997 },        // 목욕탕으로 (♨ 간판·수건)
+  tub_empty: { src: 'assets/objects/tub_empty.png', w: 131, h: 82, ax: 0.497, ay: 0.398 },   // 빈 나무 탕 2×2 (기준점 = 테두리 윗면 가운데) · 물·손님은 코드로 그 위에
   cushion: { src: 'assets/objects/cushion.png', w: 59.5, h: 35, ax: 0.499, ay: 0.424 },   // 대기석 방석 (윗면 네 꼭짓점을 바닥 마름모에 맞춰 변형, 바닥 층에 그림)
   gate: { src: 'assets/objects/gate.png', w: 42, h: 78, ax: 0.126, ay: 0.997 },   // 손님 입구 (♨ 노렌 문, 기준점 = 아래쪽 기둥 밑동) · 각도를 바닥 2:1에 맞춰 기울임
   wall_lantern: { src: 'assets/objects/wall_lantern.png', w: 22, h: 46, ax: 0.870, ay: 0.149 },   // 벽 등롱 (기준점 = 벽판)
-  wall_r: { src: 'assets/tiles/wall_r.png' },
-  wall_l: { src: 'assets/tiles/wall_l.png' },
+  wall_r: { src: 'assets/tiles/wall_r.png', slices: 4 },
+  wall_l: { src: 'assets/tiles/wall_l.png', slices: 4 },
+  // 맨 앞 잘린 낮은 벽(높이 14): 칸마다 한 장 (양끝 기둥 + 종이 판)
+  wall_low_r: { src: 'assets/tiles/wall_low_r.png' },
+  wall_low_l: { src: 'assets/tiles/wall_low_l.png' },
   // 오브젝트: 종류(kind) 키로 등록하면 코드 그림 대신 그려진다. w·h는 화면 표시 크기(파일은 2배 해상도),
   // ax·ay는 바닥 칸 가운데가 놓일 이미지 속 위치(비율)
   counter: { src: 'assets/objects/counter.png', w: 124, h: 103, ax: 0.504, ay: 0.712 },   // 접수대 3×1 (원본을 좌우 반전)
@@ -525,6 +529,7 @@ const ASSET_MANIFEST = {
   shelf_b: { src: 'assets/objects/shelf_b.png', w: 116, h: 123, ax: 0.487, ay: 0.762 },   // 뒤쪽 벽 선반 3×1 (앞면이 +y 쪽) · 세로는 누르지 않고 기울이기만 함
   jar: { src: 'assets/objects/jar.png', w: 104, h: 75, ax: 0.499, ay: 0.773 },        // 대추 항아리 무리 2×1 (원본 좌우 반전: 큰 항아리를 벽이 높은 왼쪽으로 · 벽에 걸치지 않게 조금 앞으로)
   basket: { src: 'assets/objects/basket.png', w: 80, h: 65, ax: 0.500, ay: 0.865 },   // 생강 바구니 무리 1×1 (칸 양옆으로 조금 넘침)
+  pond_water: { src: 'assets/objects/pond_water.png' },   // 연못 그림의 물 영역 마스크 (물결 효과를 이 안에만 그림)
   pond: { src: 'assets/objects/pond.png', w: 193, h: 104, ax: 0.499, ay: 0.539 },   // 정원 연못 3×3 (석등·대나무 물길 포함) · 있으면 코드 연못(pondDecor) 대신
   tree: { src: 'assets/objects/tree.png', w: 81, h: 84, ax: 0.510, ay: 0.940, shadow: 24, sway: 2.6 },   // 유자나무 1×1 · 기준점은 줄기 밑동 · sway: 바람에 꼭대기가 흔들리는 폭(px)
   pine: { src: 'assets/objects/pine.png', w: 91, h: 106, ax: 0.466, ay: 0.944, shadow: 24, sway: 2.2 },   // 소나무 1×1
@@ -569,6 +574,8 @@ const ASSET_MANIFEST = {
   dokkaebi: { ...specialSheet('dokkaebi', 124, 136, 0.4866, 131, 0.35, 3, 12), h: 44 },   // 방망이 도깨비
   snow: { ...specialSheet('snow', 118, 145, 0.5284, 134, 0.33, 3, 14), h: 44, float: 5 },   // 눈꽃 정령 (떠다님)
 };
+// 밭은 상자(_base)와 식물(_leaf) 두 층으로도 불러 둔다 — 식물만 살랑살랑 흔들기 (크기·기준점은 원래 그림과 같음)
+for (const k of ['patch_ssuk', 'patch_gukhwa']) for (const sfx of ['_base', '_leaf']) ASSET_MANIFEST[k + sfx] = { ...ASSET_MANIFEST[k], src: `assets/objects/${k}${sfx}.png` };
 // 약재 아이콘도 에셋으로 불러 둔다 (캔버스 말풍선·탕 태그에서 사용) — 키: herb_<약재 id>
 for (const [id, h] of Object.entries(HERBS)) if (h.icon) ASSET_MANIFEST['herb_' + id] = { src: h.icon };
 // 단서 그림 (CLUES[id].img) — 맵 위 단서와 단서 수첩에서 사용 · 키: clue_<단서 id>

@@ -89,6 +89,7 @@ const Sfx = {
       try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { this.ctx = null; }
     }
     if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+    if (this.ctx && !this.muted) Bgm.start();   // 첫 클릭·키 입력 뒤부터 배경음악 (브라우저 자동재생 정책)
   },
   tone(f, d, type = 'sine', v = 0.08, f2 = null, delay = 0) {
     if (this.muted || !this.ctx) return;
@@ -102,6 +103,19 @@ const Sfx = {
     g.gain.exponentialRampToValueAtTime(0.0001, t + d);
     o.connect(g).connect(this.ctx.destination);
     o.start(t); o.stop(t + d + 0.03);
+  },
+  // 짧은 잡음(타격음·숨소리용): 대역 필터를 거친 흰 잡음
+  noise(delay, dur, v, freq, q = 4, out = null) {
+    if (!this.ctx) return;
+    const c = this.ctx, t = c.currentTime + delay;
+    const len = Math.max(1, Math.floor(c.sampleRate * dur));
+    const buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    const src = c.createBufferSource(), bp = c.createBiquadFilter(), g = c.createGain();
+    src.buffer = buf; bp.type = 'bandpass'; bp.frequency.value = freq; bp.Q.value = q;
+    g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(bp).connect(g).connect(out || c.destination);
+    src.start(t); src.stop(t + dur + 0.02);
   },
   play(name) {
     if (this.muted || !this.ctx) return;
@@ -118,7 +132,165 @@ const Sfx = {
       case 'clue': [392, 523, 659, 784].forEach((f, i) => this.tone(f, 0.5, 'triangle', 0.045, null, i * 0.12)); break;
       case 'kao': this.tone(110, 1.4, 'sine', 0.09, 82); this.tone(165, 1.2, 'sine', 0.03, 123, 0.1); break;
       case 'clean': this.tone(900, 0.08, 'triangle', 0.03, 1400); break;
+      case 'doorbell': {
+        // 문 위에 매단 놋쇠 종 '딸랑-딸랑': 짧은 쇳소리(타격) + 종의 비조화 배음이 길게 울림, 두 번 흔들림
+        const strike = (d, v) => {
+          const base = 1046.5 * (1 + (Math.random() - 0.5) * 0.02);
+          for (const [m, k, dur] of [[1, 1, 1.3], [2.0, 0.5, 0.9], [2.76, 0.35, 0.7], [5.4, 0.15, 0.35]]) this.tone(base * m, dur, 'sine', v * k, null, d);
+          this.noise(d, 0.025, v * 0.6, 4200);   // 종을 치는 짧은 '틱'
+        };
+        strike(0, 0.045); strike(0.22, 0.032); strike(0.5, 0.016);
+        break;
+      }
     }
+  },
+};
+
+/* 배경음악 — 파일 없이 WebAudio로 만드는 곡 두 개. 화면에 따라 자동으로 바뀌고(1.5초 겹쳐 넘김) 멜로디는 매번 조금씩 새로 만든다.
+ *  - play  (영업 중): 요나누키 오음계(D·E·G·A·B), 거문고처럼 뜯는 소리 + 화음 바탕 + 베이스, 76bpm
+ *  - title (타이틀·이야기·엔딩): 몽환적으로 — 맑은 7화음(Dmaj7·Bm7·Gmaj7·Aadd9)이 천천히 부풀었다 사라지고,
+ *    그 위로 오르골·첼레스타 같은 종소리 분산화음이 흩어지며, 메아리를 길고 깊게 */
+const BGM_SONGS = {
+  play: {
+    bpm: 76, lead: 'pluck', padVol: 0.022, bassVol: 0.05, echo: [0.32, 0.32, 0.3],
+    scale: [196.0, 220.0, 246.94, 293.66, 329.63, 392.0, 440.0, 493.88, 587.33, 659.25],
+    roots: [146.83, 146.83, 196.0, 220.0, 146.83, 123.47, 196.0, 220.0],
+    chance: [0.9, 0.25, 0.55, 0.2, 0.75, 0.3, 0.5, 0.15], rest: [3, 6],
+  },
+  title: {
+    bpm: 64, lead: 'celesta', padVol: 0.014, bassVol: 0.03, echo: [0.42, 0.48, 0.5],   // [딜레이(초), 되먹임, 메아리 양]
+    roots: [146.83, 123.47, 196.0, 220.0, 146.83, 123.47, 196.0, 220.0],
+    chords: [   // 마디별 화음 구성음 (분산화음·바탕에 씀)
+      [293.66, 369.99, 440.0, 554.37], [246.94, 293.66, 369.99, 440.0], [196.0, 246.94, 293.66, 369.99], [220.0, 277.18, 329.63, 493.88],
+      [293.66, 369.99, 440.0, 554.37], [246.94, 293.66, 369.99, 440.0], [196.0, 246.94, 293.66, 369.99], [220.0, 277.18, 329.63, 493.88],
+    ],
+    chance: [0.9, 0.55, 0.7, 0.45, 0.8, 0.5, 0.6, 0.35],
+  },
+};
+const Bgm = {
+  on: false, chain: null, timer: 0, next: 0, step: 0, idx: 3, VOL: 0.5, song: 'title',
+  // 지금 화면에 맞는 곡: 영업 중(일차 시작·정산 포함)이면 play, 나머지는 title
+  want() { return typeof Game !== 'undefined' && ['play', 'dayIntro', 'dayEnd'].includes(Game.screen) ? 'play' : 'title'; },
+  makeChain() {   // 곡마다 따로 출력 줄기(메아리 포함)를 만들어, 바꿀 때 이전 줄기만 서서히 끈다
+    const c = Sfx.ctx, out = c.createGain(), bus = c.createGain(), [dTime, dFb, dWet] = BGM_SONGS[this.song].echo;
+    out.gain.setValueAtTime(0.0001, c.currentTime);
+    out.gain.exponentialRampToValueAtTime(this.VOL, c.currentTime + 2.5);
+    const dl = c.createDelay(1); dl.delayTime.value = dTime;
+    const fb = c.createGain(); fb.gain.value = dFb;
+    const wet = c.createGain(); wet.gain.value = dWet;
+    bus.connect(out); bus.connect(dl); dl.connect(fb).connect(dl); dl.connect(wet).connect(out);
+    out.connect(c.destination);
+    return { out, bus };
+  },
+  fadeOut(chain, sec) {
+    const c = Sfx.ctx, g = chain.out.gain;
+    g.cancelScheduledValues(c.currentTime);
+    g.setValueAtTime(Math.max(g.value, 0.0001), c.currentTime);
+    g.exponentialRampToValueAtTime(0.0001, c.currentTime + sec);
+    setTimeout(() => chain.out.disconnect(), sec * 1000 + 300);
+  },
+  start() {
+    const c = Sfx.ctx;
+    if (this.on || !c) return;
+    this.on = true;
+    this.song = this.want(); this.chain = this.makeChain();
+    this.next = c.currentTime + 0.3; this.step = 0;
+    this.timer = setInterval(() => this.tick(), 100);
+  },
+  stop() {
+    if (!this.on || !Sfx.ctx) return;
+    this.on = false;
+    clearInterval(this.timer); this.timer = 0;
+    this.fadeOut(this.chain, 0.6);
+  },
+  tick() {
+    const c = Sfx.ctx, w = this.want();
+    if (w !== this.song) {   // 화면이 바뀌면 곡을 겹쳐 넘김
+      this.fadeOut(this.chain, 1.5);
+      this.song = w; this.chain = this.makeChain();
+      this.next = c.currentTime + 0.4; this.step = 0;
+    }
+    const S = BGM_SONGS[this.song], dt = 60 / S.bpm / 2;
+    while (this.next < c.currentTime + 0.5) { this.note(S, this.step, this.next, dt); this.next += dt; this.step++; }
+  },
+  voice(f, t, dur, type, cutoff) {
+    const c = Sfx.ctx, o = c.createOscillator(), g = c.createGain(), lp = c.createBiquadFilter();
+    o.type = type; o.frequency.value = f;
+    lp.type = 'lowpass'; lp.frequency.value = cutoff;
+    g.gain.setValueAtTime(0.0001, t);
+    const bus = this.chain.bus;
+    return { o, g, lp, connect: () => { o.connect(lp).connect(g).connect(bus); o.start(t); o.stop(t + dur + 0.1); } };
+  },
+  pluck(f, t, v) {   // 거문고처럼 뜯는 소리: 빠르게 올라갔다 길게 사라짐 + 두 배 배음
+    for (const [m, k] of [[1, 1], [2, 0.3]]) {
+      const n = this.voice(f * m, t, 1.8, 'triangle', 2600);
+      n.g.gain.exponentialRampToValueAtTime(v * k, t + 0.006);
+      n.g.gain.exponentialRampToValueAtTime(0.0001, t + 1.7);
+      n.connect();
+    }
+  },
+  celesta(f, t, v) {   // 오르골·첼레스타 같은 맑은 종소리: 사인파 + 옅은 배음, 부드럽게 시작해 길게 사라짐
+    for (const [m, k, d] of [[1, 1, 2.6], [2, 0.22, 1.4], [3, 0.06, 0.8]]) {
+      const n = this.voice(f * m, t, d, 'sine', 5000);
+      n.g.gain.exponentialRampToValueAtTime(v * k, t + 0.012);
+      n.g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+      n.connect();
+    }
+  },
+  dreamPad(tones, t, dur, v) {   // 몽환적인 바탕: 화음 구성음 전부를 천천히(2초) 부풀렸다가 길게 놓음, 고음은 잘라 포근하게
+    for (const f of tones) for (const d of [-6, 6]) {
+      const n = this.voice(f, t, dur + 2.5, 'triangle', 900);
+      n.o.detune.value = d;
+      n.g.gain.exponentialRampToValueAtTime(v, t + 2.0);
+      n.g.gain.setValueAtTime(v, t + dur);
+      n.g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 2.5);
+      n.connect();
+    }
+  },
+  dreamNote(S, step, t, dt) {
+    const bar = Math.floor(step / 8) % 8, pos = step % 8, tones = S.chords[bar];
+    if (pos === 0) {
+      this.dreamPad(tones, t, dt * 8, S.padVol);
+      const b = this.voice(S.roots[bar] / 2, t, dt * 8, 'sine', 300);   // 아주 낮게 깔리는 근음
+      b.g.gain.exponentialRampToValueAtTime(S.bassVol, t + 1.2);
+      b.g.gain.exponentialRampToValueAtTime(0.0001, t + dt * 8);
+      b.connect();
+    }
+    // 분산화음: 화음 구성음을 두 옥타브에 걸쳐 오르내리며, 가끔 건너뛰고 살짝 늦게(사람이 친 듯)
+    if (Math.random() < S.chance[pos]) {
+      const up = bar % 2 === 0, k = up ? pos : 7 - pos;
+      const f = tones[k % 4] * (k < 4 ? 2 : 4) / (Math.random() < 0.2 ? 2 : 1);
+      this.celesta(f, t + Math.random() * 0.03, pos === 0 ? 0.045 : 0.032);
+    }
+    if (Math.random() < 0.05) this.celesta(tones[Math.floor(Math.random() * 4)] * 8, t + dt / 2, 0.01);   // 반짝이는 높은 종
+  },
+  pad(f, t, dur, v) {   // 부드러운 바탕 화음 (살짝 어긋난 두 음으로 일렁임)
+    for (const d of [-3, 3]) {
+      const n = this.voice(f, t, dur + 1.2, 'triangle', 700);
+      n.o.detune.value = d;
+      n.g.gain.exponentialRampToValueAtTime(v, t + 1.0);
+      n.g.gain.setValueAtTime(v, t + dur);
+      n.g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 1.2);
+      n.connect();
+    }
+  },
+  note(S, step, t, dt) {
+    if (S.chords) return this.dreamNote(S, step, t, dt);
+    const bar = Math.floor(step / 8) % 8, pos = step % 8, root = S.roots[bar];
+    if (pos === 0) {
+      this.pad(root * 2, t, dt * 8, S.padVol);                // 화음 바탕: 근음 한 옥타브 위 + 5도
+      this.pad(root * 3, t, dt * 8, S.padVol * 0.55);
+      const b = this.voice(root / 2, t, dt * 6, 'sine', 400);  // 낮은 베이스
+      b.g.gain.exponentialRampToValueAtTime(S.bassVol, t + 0.02);
+      b.g.gain.exponentialRampToValueAtTime(0.0001, t + dt * 6);
+      b.connect();
+    }
+    if (Math.random() < S.chance[pos]) {
+      if (pos === 6 && bar % 2 === 1) this.idx = S.rest[Math.random() < 0.5 ? 0 : 1];   // 근음·5도로 쉬어 가기
+      else this.idx = Math.max(1, Math.min(S.scale.length - 1, this.idx + [-2, -1, -1, 1, 1, 2][Math.floor(Math.random() * 6)]));
+      this.pluck(S.scale[this.idx], t, pos === 0 ? 0.06 : 0.045);
+    }
+    if (Math.random() < 0.025) this.pluck(S.scale[S.scale.length - 1] * 2, t + dt / 2, 0.012);   // 가끔 풍경 소리
   },
 };
 

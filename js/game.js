@@ -102,6 +102,10 @@ function init() {
   resize();
   window.addEventListener('resize', resize);
   document.addEventListener('visibilitychange', () => { if (document.hidden) openPause(); });
+  // 타이틀 화면에서도 첫 클릭·키 입력 때 소리를 깨워 타이틀 배경음악이 나오게 (브라우저 자동재생 정책)
+  const wake = () => Sfx.ensure();
+  document.addEventListener('pointerdown', wake, { once: true });
+  document.addEventListener('keydown', wake, { once: true });
   showTitle();
   requestAnimationFrame(loop);
 }
@@ -670,7 +674,7 @@ function spawnGuest(type) {
   g.path = npcPath(g.x, g.y, QUEUE_SPOTS[qi][0], QUEUE_SPOTS[qi][1]);
   w.guests.push(g);
   if (w.scene !== 'main') w.awayArrivals = (w.awayArrivals || 0) + 1;
-  Sfx.play('bell');
+  Sfx.play('doorbell');   // 입구 방울 짤랑
   UI.toast(`손님이 도착했어요 — ${T.name}`);
   return true;
 }
@@ -1225,7 +1229,7 @@ function toggleSound() {
   Sfx.muted = !Sfx.muted;
   try { localStorage.setItem(SOUND_KEY, Sfx.muted ? '1' : '0'); } catch (e) { /* noop */ }
   UI.setSoundIcon(Sfx.muted);
-  if (!Sfx.muted) { Sfx.ensure(); Sfx.play('click'); }
+  if (!Sfx.muted) { Sfx.ensure(); Sfx.play('click'); } else Bgm.stop();   // 소리 끄면 배경음악도 멈춤
 }
 function openPause() { if (Game.screen === 'play' && !Game.modal) UI.pause(); }
 function openJournal() { if (Game.screen === 'play' && !Game.modal) UI.journal(Game.meta); }
