@@ -146,6 +146,97 @@ const Sfx = {
   },
 };
 
+/* 손님 말소리 — 동물의 숲처럼 글자가 찍힐 때마다 짧게 '웅얼'거리는 목소리 (파일 없이 WebAudio로 합성)
+ *  한글 한 글자마다: 손님별 음색의 발진기 → 모음(ㅏ·ㅔ·ㅓ·ㅗ·ㅜ·ㅡ·ㅣ)에 맞춘 두 개의 공명(포먼트) 필터 → 짧은 소리
+ *  ㅅ·ㅈ·ㅊ·ㅎ·ㅋ·ㅌ·ㅍ 같은 자음은 앞에 '스/츠' 같은 짧은 잡음을 붙인다. 같은 글자는 늘 같은 높이라 말투처럼 들린다.
+ *  p: 기본 높이(Hz) · wave: 음색 · dur: 한 음 길이(초) · gap: 글자 간격(초) · jit: 높낮이 흔들림 · glide: 음 끝 휘기(배수)
+ *  fmt: 포먼트 배수(크면 작고 가벼운 목소리) · vib: 떨림(Hz) · air: 숨소리 양 · dry: 필터 안 거친 소리 양 · vol: 크기 */
+const VOICES = {
+  default:     { p: 260, wave: 'triangle', dur: 0.07, gap: 0.045, jit: 0.08, glide: 1.0, fmt: 1.0, vib: 0, air: 0, dry: 0.4, vol: 0.05 },
+  moss:        { p: 125, wave: 'triangle', dur: 0.09, gap: 0.06, jit: 0.06, glide: 0.94, fmt: 0.85, vib: 6, air: 0.15, dry: 0.4, vol: 0.06 },     // 이끼 노인: 낮고 느릿, 떨리는 할아버지
+  lantern:     { p: 330, wave: 'square', dur: 0.05, gap: 0.035, jit: 0.16, glide: 1.08, fmt: 1.15, vib: 0, air: 0, dry: 0.15, vol: 0.03 },      // 등롱 요괴: 빠르고 통통 튀는
+  river:       { p: 290, wave: 'sine', dur: 0.08, gap: 0.045, jit: 0.1, glide: 0.75, fmt: 1.05, vib: 0, air: 0.05, dry: 0.7, vol: 0.06 },      // 강물 정령: 뽀글뽀글 물방울
+  mushroom:    { p: 215, wave: 'sawtooth', dur: 0.08, gap: 0.055, jit: 0.07, glide: 0.97, fmt: 0.95, vib: 7, air: 0.05, dry: 0.08, vol: 0.035 }, // 버섯 할멈: 코맹맹이 할머니
+  fox:         { p: 410, wave: 'triangle', dur: 0.06, gap: 0.04, jit: 0.09, glide: 1.12, fmt: 1.2, vib: 0, air: 0.08, dry: 0.45, vol: 0.045 },  // 여우불 아가씨: 높고 끝이 올라가는
+  turtle:      { p: 88, wave: 'sawtooth', dur: 0.12, gap: 0.075, jit: 0.04, glide: 0.96, fmt: 0.75, vib: 0, air: 0.05, dry: 0.12, vol: 0.05 },  // 돌거북 신: 아주 낮고 묵직
+  rabbit:      { p: 560, wave: 'sine', dur: 0.045, gap: 0.032, jit: 0.12, glide: 1.1, fmt: 1.35, vib: 0, air: 0, dry: 0.8, vol: 0.05 },         // 달토끼: 아주 높고 빠른
+  frog:        { p: 165, wave: 'square', dur: 0.07, gap: 0.05, jit: 0.1, glide: 0.62, fmt: 0.9, vib: 0, air: 0.1, dry: 0.12, vol: 0.03 },        // 연잎 개구리 신: 개굴, 뚝 떨어지는
+  butterfly:   { p: 470, wave: 'sine', dur: 0.065, gap: 0.042, jit: 0.07, glide: 1.04, fmt: 1.25, vib: 5, air: 0.25, dry: 0.7, vol: 0.045 },   // 호랑나비 아씨: 하늘하늘 숨 섞인
+  crane:       { p: 300, wave: 'triangle', dur: 0.085, gap: 0.058, jit: 0.05, glide: 1.0, fmt: 1.05, vib: 3, air: 0.05, dry: 0.4, vol: 0.05 },  // 학 선인: 점잖고 또박또박
+  dokkaebi:    { p: 140, wave: 'sawtooth', dur: 0.06, gap: 0.038, jit: 0.2, glide: 1.05, fmt: 0.9, vib: 0, air: 0.1, dry: 0.1, vol: 0.04 },     // 방망이 도깨비: 걸걸하고 들썩이는
+  snow:        { p: 620, wave: 'sine', dur: 0.06, gap: 0.042, jit: 0.08, glide: 1.0, fmt: 1.4, vib: 0, air: 0.1, dry: 0.75, vol: 0.04, bell: true }, // 눈꽃 정령: 맑고 반짝
+  riverGod:    { p: 105, wave: 'sawtooth', dur: 0.11, gap: 0.07, jit: 0.05, glide: 0.88, fmt: 0.8, vib: 0, air: 0.2, dry: 0.1, vol: 0.05 },     // 강의 신: 탁하고 지친 낮은 목소리
+  spiderElder: { p: 175, wave: 'square', dur: 0.06, gap: 0.04, jit: 0.12, glide: 1.03, fmt: 0.95, vib: 5, air: 0.05, dry: 0.1, vol: 0.03 },     // 거미 할아범: 허허 잘 웃는 할아버지
+  sansin:      { p: 235, wave: 'triangle', dur: 0.08, gap: 0.055, jit: 0.07, glide: 0.98, fmt: 1.0, vib: 6, air: 0.08, dry: 0.4, vol: 0.055 },  // 산신 할머니: 따뜻하고 기품 있는
+  imugi:       { p: 255, wave: 'sine', dur: 0.1, gap: 0.065, jit: 0.05, glide: 1.06, fmt: 1.05, vib: 2, air: 0.2, dry: 0.65, vol: 0.055 },     // 구름 이무기: 조용하고 몽글몽글
+  kaonashi:    { p: 78, wave: 'sine', dur: 0.22, gap: 0.14, jit: 0.03, glide: 0.9, fmt: 0.8, vib: 0, air: 0.6, dry: 0.6, vol: 0.07 },          // 얼굴 없는 손님: '아… 아…' 낮은 숨소리
+};
+const Voice = {
+  // 모음 → [F1, F2, 높이 배수]
+  VOWEL: { a: [800, 1250, 1.0], e: [500, 1900, 1.06], eo: [620, 1050, 0.97], o: [460, 820, 0.94], u: [330, 850, 0.9], eu: [360, 1450, 1.0], i: [290, 2300, 1.12] },
+  JUNG: 'a e a e eo e eo e o a e o o u eo e u u eu eu i'.split(' '),   // 한글 중성 21개 → 모음 무리
+  HISS: new Set([9, 10, 12, 13, 14, 15, 16, 17, 18]),                  // ㅅ ㅆ ㅈ ㅉ ㅊ ㅋ ㅌ ㅍ ㅎ (초성 번호)
+  MELODY: [1, 1.06, 0.95, 1.12, 0.9, 1.03],
+  out: null,
+  bus() {
+    const c = Sfx.ctx;
+    if (!this.out || this.out.context !== c) { this.out = c.createGain(); this.out.gain.value = 1; this.out.connect(c.destination); }
+    return this.out;
+  },
+  // 글자 하나를 소리 낸다. 소리 낼 글자가 아니면 false
+  blip(who, ch, tail = false) {
+    if (Sfx.muted || !Sfx.ctx) return false;
+    const code = ch.charCodeAt(0);
+    let vowel, hiss = false;
+    if (code >= 0xac00 && code <= 0xd7a3) {
+      const k = code - 0xac00;
+      vowel = this.JUNG[Math.floor(k / 28) % 21];
+      hiss = this.HISS.has(Math.floor(k / 588));
+    } else if (/[a-z0-9]/i.test(ch)) vowel = ['a', 'e', 'i', 'o', 'u'][code % 5];
+    else return false;
+    const v = VOICES[who] || VOICES.default, c = Sfx.ctx, t = c.currentTime + 0.005;
+    const [f1, f2, pm] = this.VOWEL[vowel];
+    const f = v.p * pm * this.MELODY[code % this.MELODY.length] * (1 + (Math.random() - 0.5) * 2 * v.jit) * (tail ? 0.9 : 1);
+    const dur = v.dur * (tail ? 1.5 : 1);
+    const env = c.createGain();
+    env.gain.setValueAtTime(0.0001, t);
+    env.gain.exponentialRampToValueAtTime(v.vol, t + 0.008);
+    env.gain.setValueAtTime(v.vol, t + dur * 0.55);
+    env.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    env.connect(this.bus());
+    const o = c.createOscillator();
+    o.type = v.wave;
+    o.frequency.setValueAtTime(f, t);
+    o.frequency.exponentialRampToValueAtTime(f * v.glide, t + dur);
+    if (v.vib) {   // 떨림
+      const lfo = c.createOscillator(), lg = c.createGain();
+      lfo.frequency.value = v.vib; lg.gain.value = f * 0.035;
+      lfo.connect(lg).connect(o.frequency); lfo.start(t); lfo.stop(t + dur + 0.02);
+    }
+    const dry = c.createGain(); dry.gain.value = v.dry;
+    o.connect(dry).connect(env);
+    for (const [ff, q, k] of [[f1, 5, 1.6], [f2, 7, 1.0]]) {   // 모음 공명
+      const bp = c.createBiquadFilter(), g = c.createGain();
+      bp.type = 'bandpass'; bp.frequency.value = ff * v.fmt; bp.Q.value = q; g.gain.value = k;
+      o.connect(bp).connect(g).connect(env);
+    }
+    o.start(t); o.stop(t + dur + 0.03);
+    if (v.air) Sfx.noise(0, dur * 0.9, v.vol * v.air * 1.6, f1 * v.fmt * 1.3, 2, this.bus());   // 숨소리
+    if (hiss) Sfx.noise(0, 0.022, v.vol * 0.35, 5200, 1.5, this.bus());                      // 'ㅅ·ㅊ' 같은 잇소리
+    if (v.bell) Sfx.tone(f * 3, dur * 2.2, 'sine', v.vol * 0.25);                              // 눈꽃 정령의 반짝임
+    return true;
+  },
+  // 글자 다음에 쉴 시간(초)
+  pause(who, ch) {
+    const v = VOICES[who] || VOICES.default;
+    if (ch === '\n') return v.gap * 4;
+    if ('.…!?」'.includes(ch)) return v.gap * 3;
+    if (',~「('.includes(ch)) return v.gap * 1.8;
+    if (ch === ' ') return v.gap * 0.6;
+    return v.gap;
+  },
+};
+
 /* 배경음악 — 파일 없이 WebAudio로 만드는 곡 두 개. 화면에 따라 자동으로 바뀌고(1.5초 겹쳐 넘김) 멜로디는 매번 조금씩 새로 만든다.
  *  - play  (영업 중): 요나누키 오음계(D·E·G·A·B), 거문고처럼 뜯는 소리 + 화음 바탕 + 베이스, 76bpm
  *  - title (타이틀·이야기·엔딩): 몽환적으로 — 맑은 7화음(Dmaj7·Bm7·Gmaj7·Aadd9)이 천천히 부풀었다 사라지고,

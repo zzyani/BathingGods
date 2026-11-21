@@ -1238,6 +1238,52 @@ const Render = (() => {
     ctx.restore();
   }
 
+  /* ---------- 주인공을 가리는 것 반투명 처리 ---------- */
+  // 오브젝트가 화면에서 차지하는 모양: 바닥 마름모를 그림 높이만큼 위로 늘린 육각형 (+ 나무는 넓은 잎 부분 사각형)
+  function hidesPlayer(o, pts) {
+    if (!pts.length) return false;
+    const T = [sx(o.x, o.y), sy(o.x, o.y)], R = [sx(o.x + o.w, o.y), sy(o.x + o.w, o.y)];
+    const B = [sx(o.x + o.w, o.y + o.h), sy(o.x + o.w, o.y + o.h)], L = [sx(o.x, o.y + o.h), sy(o.x, o.y + o.h)];
+    const key = o.kind === 'tub' ? 'tub_empty' : (o.asset || o.kind);
+    const a = Assets.imgs[key] || Assets.imgs[key + '_leaf'];
+    const ox = sx(o.x + o.w / 2, o.y + o.h / 2), oy = sy(o.x + o.w / 2, o.y + o.h / 2) - (o.kind === 'tub' ? 16 : 0);
+    let H = o.pickH || 36, rect = null;
+    if (a && a.img.naturalWidth && !a.def.sheet) {
+      const d = a.def, w = d.w || a.img.naturalWidth, h = d.h || a.img.naturalHeight;
+      const top = oy - h * (d.ay ?? 1);
+      H = Math.max(8, T[1] - top);
+      if (o.kind === 'tree' || o.kind === 'pine') rect = [ox - w * (d.ax ?? 0.5), top, ox + w * (1 - (d.ax ?? 0.5)), oy - h * (d.ay ?? 1) * 0.35];
+    }
+    const poly = [[T[0], T[1] - H], [R[0], R[1] - H], R, B, L, [L[0], L[1] - H]];
+    return pts.some(p => inPoly(p, poly) || (rect && p[0] > rect[0] && p[0] < rect[2] && p[1] > rect[1] && p[1] < rect[3]));
+  }
+  function inPoly([x, y], poly) {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const [xi, yi] = poly[i], [xj, yj] = poly[j];
+      if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+  }
+  // 한 덩어리로 반투명하게: 따로 깔아 둔 캔버스에 그린 뒤 통째로 옅게 얹는다 (겹친 부분끼리 비쳐 보이지 않게)
+  let fadeLayer = null;
+  function faded(ctx, alpha, f) {
+    const cv = ctx.canvas;
+    if (!fadeLayer) fadeLayer = document.createElement('canvas').getContext('2d');
+    const Lc = fadeLayer;
+    if (Lc.canvas.width !== cv.width || Lc.canvas.height !== cv.height) { Lc.canvas.width = cv.width; Lc.canvas.height = cv.height; }
+    Lc.setTransform(1, 0, 0, 1, 0, 0);
+    Lc.clearRect(0, 0, cv.width, cv.height);
+    Lc.setTransform(ctx.getTransform());
+    Lc.imageSmoothingEnabled = ctx.imageSmoothingEnabled;
+    f(Lc);
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(Lc.canvas, 0, 0);
+    ctx.restore();
+  }
+
   /* ---------- 월드 전체 ---------- */
   function world(ctx, w, t, hover) {
     const sid = w.scene || 'main';
@@ -1260,31 +1306,48 @@ const Render = (() => {
     }
     floorDecor(ctx, w, t, hover);
 
+    // 주인공을 가리는 것(벽·문·탕·선반·나무 등)은 반투명하게 — 주인공 몸 위 몇 점이 그 그림 안에 들어가면
+    const PPTS = showPlayer ? [[0, -6], [0, -20], [0, -36], [0, -50], [-9, -26], [9, -26]].map(([dx, dy]) => [psx + dx, psy + dy]) : [];
+    const FADE = 0.38;
+    const wallFade = (i, j, h, k) => {
+      if (!showPlayer || h <= 20 || k <= pk) return 1;
+      const wx = sx(i + 0.5, j + 0.5), wy = sy(i + 0.5, j + 0.5);
+      return Math.abs(wx - psx) < 46 && psy < wy + 16 && psy > wy - h - 20 ? FADE : 1;
+    };
+    const objs = [];
+    for (const o of w.objects) {
+      if (o.kind === 'pond' || (o.scene || 'main') !== sid) continue;   // 연못은 바닥 층에서 그림
+      objs.push({ o, k: o.x + o.w - 0.5 + o.y + o.h - 0.5 });
+    }
+
     const list = [];
     for (let j = 0; j < S.h; j++) {
       for (let i = 0; i < S.w; i++) {
         const ch = S.rows[j][i];
         if (S.portals[ch]) {
-          const P = S.portals[ch];
-          list.push({ k: i + j + 1.02, f: () => door(ctx, t, i, j, P.orient, P.label, P.to === 'main' ? '#8e2a22' : '#3d5a7a', P.to) });
+          const P = S.portals[ch], k = i + j + 1.02, a = wallFade(i, j, 90, k);
+          const f = c => door(c, t, i, j, P.orient, P.label, P.to === 'main' ? '#8e2a22' : '#3d5a7a', P.to);
+          list.push({ k, f: () => a < 1 ? faded(ctx, a, f) : f(ctx) });
           continue;
         }
         if (ch !== '#') continue;
-        const k = i + j + 1;
-        let alpha = 1;
-        const h = wallHeight(i, j);
-        if (showPlayer && h > 20 && k > pk) {
-          const wx = sx(i + 0.5, j + 0.5), wy = sy(i + 0.5, j + 0.5);
-          if (Math.abs(wx - psx) < 46 && psy < wy + 16 && psy > wy - h - 20) alpha = 0.35;
+        let k = i + j + 1;
+        // 오브젝트 바로 앞(아래·오른쪽)에 붙은 벽은 그 오브젝트보다 나중에 그린다 — 보일러 가마처럼 앞 벽에 붙은 것이 벽 위로 튀어나오지 않게
+        for (const { o, k: ok } of objs) {
+          if ((j === o.y + o.h && i >= o.x - 1 && i < o.x + o.w) || (i === o.x + o.w && j >= o.y - 1 && j < o.y + o.h)) k = Math.max(k, ok + 0.01);
         }
+        const alpha = wallFade(i, j, wallHeight(i, j), k);
         list.push({ k, f: () => wall(ctx, i, j, alpha) });
       }
     }
     for (const L of S.lanterns) list.push({ k: L.wall[0] + L.wall[1] + 1.02, f: () => lantern(ctx, L, t) });
-    if (inMain) list.push({ k: DOOR.x + DOOR.y + 1.02, f: () => door(ctx, t) });
-    for (const o of w.objects) {
-      if (o.kind === 'pond' || (o.scene || 'main') !== sid) continue;   // 연못은 바닥 층에서 그림
-      list.push({ k: o.x + o.w - 0.5 + o.y + o.h - 0.5, f: () => drawObject(ctx, o, t) });
+    if (inMain) {
+      const k = DOOR.x + DOOR.y + 1.02, a = wallFade(DOOR.x, DOOR.y, 90, k);
+      list.push({ k, f: () => a < 1 ? faded(ctx, a, c => door(c, t)) : door(ctx, t) });
+    }
+    for (const { o, k } of objs) {
+      const a = showPlayer && k > pk && hidesPlayer(o, PPTS) ? FADE : 1;
+      list.push({ k, f: () => a < 1 ? faded(ctx, a, c => drawObject(c, o, t)) : drawObject(ctx, o, t) });
     }
     for (const c of w.clueItems) {
       if (c.collected || (c.scene || 'main') !== sid) continue;

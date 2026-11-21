@@ -129,7 +129,8 @@ const UI = (() => {
   }
 
   function dayIntro(day, cfg, meta) {
-    const owned = UPGRADES.filter(u => meta.upgrades.includes(u.id));
+    // 줄마다 가장 높은 단계만 보여 준다
+    const owned = UP_LINES.map(l => UPGRADES.filter(u => u.line === l && meta.upgrades.includes(u.id)).pop()).filter(Boolean);
     const gifts = giftsOf(meta);
     showScreen(`<div class="card">
       <div class="day-num">${day}일차 <small>/ ${DAYS.length}</small></div>
@@ -170,48 +171,91 @@ const UI = (() => {
   }
 
   function shop(meta, next) {
-    const items = UPGRADES.map(u => {
-      const owned = meta.upgrades.includes(u.id);
-      return `<div class="shop-item ${owned ? 'owned-item' : ''}">
-        <div class="info"><b>${esc(u.name)}</b><p>${esc(u.desc)}</p></div>
-        <button class="btn ${owned ? '' : 'primary'}" data-act="buy" data-id="${u.id}" ${owned || meta.coins < u.cost ? 'disabled' : ''}>
-          ${owned ? '보유 중' : `${u.cost}냥`}</button></div>`;
+    // 줄마다 다음 단계 하나만 — 다 산 줄은 마지막 단계를 '최고 단계'로 보여 주고 목록 맨 아래로
+    const rows = UP_LINES.map(line => {
+      const tiers = UPGRADES.filter(u => u.line === line), lv = upLv(line, meta);
+      return { tiers, lv, u: tiers[Math.min(lv, tiers.length - 1)], maxed: lv >= tiers.length };
+    }).sort((a, b) => a.maxed - b.maxed);
+    const items = rows.map(({ tiers, lv, u, maxed }) => {
+      const dots = tiers.length > 1 ? `<span class="lv">${tiers.map((_, i) => `<i class="${i < lv ? 'on' : ''}"></i>`).join('')}</span>` : '';
+      const poor = !maxed && meta.coins < u.cost;
+      return `<div class="shop-item ${maxed ? 'owned-item' : ''}">
+        <div class="info"><b>${esc(u.name)}${dots}</b><p>${esc(u.desc)}</p></div>
+        <button class="btn ${maxed ? '' : 'primary'}" data-act="buy" data-id="${u.id}" ${maxed || poor ? 'disabled' : ''}>
+          ${maxed ? (tiers.length > 1 ? '최고 단계' : '보유 중') : `${u.cost}냥`}</button></div>`;
     }).join('');
-    showScreen(`<div class="card">
+    const left = UPGRADES.filter(u => !meta.upgrades.includes(u.id)).length;
+    showScreen(`<div class="card shop">
       <h2>목욕탕 상점</h2>
       <p>번 돈으로 내일 영업을 준비하자. <span class="coins-big">보유 ${meta.coins}냥</span></p>
+      <p class="shop-sub">${left ? `같은 줄의 물건은 한 단계씩 좋아져요 · 남은 물건 ${left}개` : '모든 물건을 갖췄어요!'}</p>
       <div class="shop-grid">${items}</div>
       <div class="actions"><button class="btn primary" data-act="next">다음 날로</button></div>
     </div>`);
     bind(E.screen, { buy: b => { buyUpgrade(b.dataset.id); shop(meta, next); }, next });
   }
 
+  /* ---------- 엔딩 ---------- */
+  // 이름 목록을 "가, 나와 다" 처럼 잇는다
+  function joinNames(list) {
+    if (list.length <= 1) return list[0] || '';
+    const head = list.slice(0, -1);
+    head[head.length - 1] = Util.josa(head[head.length - 1], '과', '와');
+    return head.join(', ') + ' ' + list[list.length - 1];
+  }
+  const JOSA = { 은: ['은', '는'], 이: ['이', '가'], 을: ['을', '를'], 과: ['과', '와'] };
+  function fillEnding(t, names, gifts) {
+    return t.replace(/\{(names|gifts)(?:\|([^}]+))?\}/g, (_, k, p) => {
+      const word = joinNames(k === 'names' ? names : gifts);
+      if (!p) return word;
+      return JOSA[p] ? Util.josa(word, JOSA[p][0], JOSA[p][1]) : word + p;
+    });
+  }
+  // 엔딩 본문 + 선물 선반. healed: 잘 모신 손님 id 목록, epi: 얼굴 없는 손님 후일담 키
+  function endingBody(type, healed, epi) {
+    const giftOf = id => SPECIALS[id].gift || KAONASHI_GIFT;
+    const names = healed.map(id => SPECIALS[id].name), gifts = healed.map(id => giftOf(id).name);
+    let paras = ENDING_INFO[type].text.map(t => `<p>${esc(fillEnding(t, names, gifts))}</p>`).join('');
+    if (type !== 'h5') paras += `<p class="kao-line">${esc(healed.includes('kaonashi') ? KAONASHI_HEALED_LINE : KAONASHI_LINES[epi || 'none'])}</p>`;
+    const shelf = SPECIAL_ORDER.map(id => {
+      const ok = healed.includes(id), g = giftOf(id);
+      return `<div class="gift ${ok ? 'got' : 'miss'}">
+        <canvas data-guest="${id}" data-sil="${ok ? '' : '1'}" width="120" height="120"></canvas>
+        <b>${ok ? esc(g.name) : '???'}</b><small>${ok ? esc(SPECIALS[id].name) : esc(SPECIALS[id].alias) + ' · 모시지 못함'}</small></div>`;
+    }).join('');
+    return `<div class="end-text">${paras}</div>
+      <div class="gift-shelf"><div class="gs-title">받은 선물 ${healed.length} / ${SPECIAL_ORDER.length}</div><div class="gs-row">${shelf}</div></div>`;
+  }
+  function drawGiftPortraits() {
+    E.screen.querySelectorAll('canvas[data-guest]').forEach(c => Render.portrait(c, c.dataset.guest, { silhouette: !!c.dataset.sil }));
+  }
+  const artOf = type => type === 'h5' ? 'special' : 'normal';
+  // 엔딩 그림: 일러스트가 있으면 그림, 없으면 코드로 그리는 캔버스
+  const artTag = (type, w, h) => ENDING_ART[type]
+    ? `<img class="end-img" src="${ENDING_ART[type]}" alt="${esc(ENDING_INFO[type].title)}">`
+    : `<canvas data-art="${artOf(type)}" width="${w}" height="${h}"></canvas>`;
+  const drawArts = () => E.screen.querySelectorAll('canvas[data-art]').forEach(c => Render.endingArt(c, c.dataset.art));
+
   function ending(type, data) {
-    const m = data.meta;
-    let paras;
-    if (type === 'special') {
-      paras = SPECIAL_ENDING.map(p => `<p>${esc(p)}</p>`).join('');
-    } else {
-      const k = epilogueKey(m);
-      paras = `<p>${esc(RANKS[data.rank].text)}</p><p>${esc(KAONASHI_LINES[k])}</p>
-        <p class="hint">숨겨진 결말이 있습니다 — 마지막 손님인 검은 그림자의 단서를 ${CLUES_NEEDED}개 이상 모으고, 마지막 밤에 그를 손님으로 맞이해 보세요.</p>`;
-    }
-    showScreen(`<div class="card ending ${type}">
-      <div class="end-tag">${ENDING_INFO[type].tag}</div>${data.newEntry ? '<div class="new-badge">앨범에 새 엔딩이 기록되었어요</div>' : ''}
-      <h2>${ENDING_INFO[type].title}</h2>
-      <canvas id="end-art" width="720" height="320"></canvas>
-      <div class="end-text">${paras}</div>
+    const m = data.meta, info = ENDING_INFO[type];
+    showScreen(`<div class="card ending ${artOf(type)}">
+      <div class="end-tag">${esc(info.tag)}</div>${data.newEntry ? '<div class="new-badge">앨범에 새 엔딩이 기록되었어요</div>' : ''}
+      <h2>${esc(info.title)}</h2>
+      ${artTag(type, 720, 320)}
+      ${endingBody(type, healedIds(m), epilogueKey(m))}
       <div class="rank"><b>${data.rank}</b>${esc(RANKS[data.rank].title)}</div>
+      <p class="rank-text">${esc(RANKS[data.rank].text)}</p>
       <div class="summary">
         <div>총점<b>${m.score}</b></div>
         <div>평균 평판<b>★${data.avg.toFixed(1)}</b></div>
         <div>맞이한 손님<b>${m.served}명</b></div>
         <div>놓친 손님<b>${m.missed}명</b></div>
-        <div>맞이한 특별한 손님<b>${healedCount(m)}/${SPECIAL_ORDER.length}</b></div>
       </div>
+      ${type !== 'h5' ? `<p class="hint">엔딩은 모두 ${ENDING_TYPES.length}가지 — 특별한 손님을 더 많이 모시면 다른 엔딩이 열립니다.</p>` : ''}
       <div class="actions"><button class="btn primary" data-act="title">타이틀로</button></div>
     </div>`);
-    Render.endingArt(E.screen.querySelector('#end-art'), type);
+    drawArts();
+    drawGiftPortraits();
     bind(E.screen, { title: () => restartToTitle() });
   }
 
@@ -223,21 +267,19 @@ const UI = (() => {
       if (!e) {
         return `<div class="album-card locked">
           <div class="ac-art"><span>?</span></div>
-          <div class="ac-body"><div class="ac-tag">${info.tag}</div><b>???</b>
+          <div class="ac-body"><div class="ac-tag">${esc(info.tag)}</div><b>???</b>
           <p class="ac-hint">${esc(info.hint)}</p></div></div>`;
       }
-      const epi = type === 'normal'
-        ? `<div class="ac-epi"><div class="ac-epi-title">후일담 ${e.epilogues.length}/${EPILOGUE_ORDER.length}</div>
-          ${EPILOGUE_ORDER.map(k => `<span class="${e.epilogues.includes(k) ? 'on' : ''}">${e.epilogues.includes(k) ? esc(EPILOGUE_LABELS[k]) : '???'}</span>`).join('')}</div>`
-        : '';
-      return `<div class="album-card got ${type}">
-        <div class="ac-art"><canvas data-art="${type}" width="480" height="214"></canvas></div>
-        <div class="ac-body"><div class="ac-tag">${info.tag}</div><b>${esc(info.title)}</b>
+      const who = (e.lastHealed || []).map(id => SPECIALS[id].name);
+      return `<div class="album-card got ${artOf(type)}">
+        <div class="ac-art">${artTag(type, 480, 214)}</div>
+        <div class="ac-body"><div class="ac-tag">${esc(info.tag)}</div><b>${esc(info.title)}</b>
           <ul class="ac-meta">
             <li>처음 본 날 · ${esc(e.first)}</li>
             <li>본 횟수 · ${e.count}회</li>
             <li>최고 등급 · ${e.bestRank} ${esc(RANKS[e.bestRank].title)} · 최고 점수 ${e.bestScore}</li>
-          </ul>${epi}
+            ${who.length ? `<li>모신 손님 · ${esc(who.join(', '))}</li>` : ''}
+          </ul>
           <button class="btn" data-act="view" data-type="${type}">다시 보기</button>
         </div></div>`;
     };
@@ -247,27 +289,26 @@ const UI = (() => {
       <div class="album-grid">${ENDING_TYPES.map(card).join('')}</div>
       <div class="actions"><button class="btn primary" data-act="back">돌아가기</button></div>
     </div>`);
-    E.screen.querySelectorAll('canvas[data-art]').forEach(c => Render.endingArt(c, c.dataset.art));
+    drawArts();
     bind(E.screen, { back, view: b => albumView(b.dataset.type, data, back) });
   }
   function albumView(type, data, backToTitle) {
     const e = data.endings[type], info = ENDING_INFO[type];
-    const paras = type === 'special'
-      ? SPECIAL_ENDING.map(p => `<p>${esc(p)}</p>`).join('')
-      : `<p>${esc(RANKS[e.lastRank || e.bestRank].text)}</p><p>${esc(KAONASHI_LINES[e.lastEpilogue || 'none'])}</p>`;
-    showScreen(`<div class="card ending ${type}">
-      <div class="end-tag">${info.tag} · 다시 보기</div>
+    showScreen(`<div class="card ending ${artOf(type)}">
+      <div class="end-tag">${esc(info.tag)} · 다시 보기</div>
       <h2>${esc(info.title)}</h2>
-      <canvas id="end-art" width="720" height="320"></canvas>
-      <div class="end-text">${paras}</div>
+      ${artTag(type, 720, 320)}
+      ${endingBody(type, e.lastHealed || [], e.lastEpilogue)}
       <div class="actions"><button class="btn primary" data-act="back">앨범으로</button></div>
     </div>`);
-    Render.endingArt(E.screen.querySelector('#end-art'), type);
+    drawArts();
+    drawGiftPortraits();
     bind(E.screen, { back: () => album(loadAlbum(), backToTitle) });
   }
 
   /* ---------- 모달 ---------- */
   function closeModal() {
+    stopTyping();
     Game.modal = null;
     Game.heating = false;
     currentTub = null;
@@ -276,8 +317,42 @@ const UI = (() => {
     E.modal.innerHTML = '';
   }
 
-  function dialog({ portrait, name, text, buttons, silhouette = false }) {
+  // 손님 말소리와 함께 글자를 한 자씩 찍는다 (동물의 숲 느낌). 「」가 있으면 그 안의 말만 소리 내고, 나머지 서술은 조용히 찍는다
+  let typing = null;
+  function stopTyping() {
+    if (!typing) return false;
+    clearTimeout(typing.timer);
+    typing.el.innerHTML = typing.html(typing.text.length);
+    typing = null;
+    return true;
+  }
+  function typeText(el, text, who) {
+    const html = n => esc(text.slice(0, n)).replace(/\n/g, '<br>');
+    const quoted = text.includes('「');
+    let i = 0, inQuote = false, last = -1;
+    typing = { el, text, html, timer: 0 };
+    const step = () => {
+      if (!typing || typing.el !== el) return;
+      const ch = text[i];
+      if (ch === '「') inQuote = true;
+      const speak = !quoted || inQuote;
+      // 문장 끝 글자는 조금 길고 낮게 (말끝 내리기)
+      const tail = /[.…!?」\n]/.test(text[i + 1] || '.');
+      if (speak) Voice.blip(who, ch, tail);
+      if (ch === '」') inQuote = false;
+      i++;
+      el.innerHTML = html(i);
+      if (i >= text.length) { typing = null; return; }
+      let wait = speak ? Voice.pause(who, ch) : 0.012;
+      if (!speak && ch === '\n') wait = 0.12;
+      typing.timer = setTimeout(step, wait * 1000);
+    };
+    step();
+  }
+
+  function dialog({ portrait, name, text, buttons, silhouette = false, voice = null }) {
     hideTooltip();
+    stopTyping();
     Game.modal = 'dialog';
     dialogButtons = buttons;
     E.modal.className = 'modal dim';
@@ -285,12 +360,17 @@ const UI = (() => {
       <div class="portrait"><canvas width="240" height="240"></canvas></div>
       <div class="dlg-body">
         <div class="dlg-name">${esc(name)}</div>
-        <div class="dlg-text">${esc(text).replace(/\n/g, '<br>')}</div>
+        <div class="dlg-text"><span class="dlg-ghost">${esc(text).replace(/\n/g, '<br>')}</span><span class="dlg-typed"></span></div>
         <div class="dlg-btns">${buttons.map((b, i) => `<button class="btn ${b.primary ? 'primary' : ''}" data-i="${i}" ${b.disabled ? 'disabled' : ''}>
           <span class="key">${i + 1}</span>${esc(b.label)}${b.note ? `<small>${esc(b.note)}</small>` : ''}</button>`).join('')}</div>
       </div></div>`;
     Render.portrait(E.modal.querySelector('canvas'), portrait, { silhouette });
     E.modal.querySelectorAll('[data-i]').forEach(btn => btn.addEventListener('click', () => choose(+btn.dataset.i)));
+    const typed = E.modal.querySelector('.dlg-typed');
+    if (voice) {
+      typeText(typed, text, voice);
+      E.modal.querySelector('.dlg-text').addEventListener('click', stopTyping);   // 글자를 누르면 바로 다 보여 줌
+    } else typed.innerHTML = esc(text).replace(/\n/g, '<br>');
   }
   function choose(i) {
     const b = dialogButtons[i];
@@ -597,6 +677,7 @@ const UI = (() => {
     init, showScreen, hideScreen, showHUD, title, help, story, dayIntro, dayEnd, shop, ending, album,
     dialog, choose, closeModal, openTub, refreshTub, journal, pause, updateHUD, toast, tooltip, hideTooltip, setSoundIcon,
     hasDialogButton: i => !!(dialogButtons[i] && !dialogButtons[i].disabled),
+    skipTyping: stopTyping,
     primaryIndex: () => dialogButtons.findIndex(b => b.primary && !b.disabled),
   };
 })();
