@@ -67,7 +67,7 @@ const SCENES = {
       '#ggggggggggg#',
       '#g~~~ggggggg#',
       '#g~~~ggggggg#',
-      '#ggggggggggg#',
+      '#g~~~ggggggg#',   // 연못 그림이 정사각이라 3×3
       '#ggggggggggg#',
       '#ggggggggggg#',
       '#ggggggggggg#',
@@ -124,7 +124,7 @@ const OBJECT_DEFS = [
   { id: 'tub4', kind: 'tub', x: 18, y: 1, w: 2, h: 2, label: '탕 4', requires: 'tub4' },
   { id: 'yuja', scene: 'garden', kind: 'tree', x: 1, y: 1, w: 1, h: 1, label: '유자나무', herbs: ['yuja'], pickH: 84 },
   { id: 'ssuk', scene: 'garden', kind: 'patch', x: 8, y: 2, w: 2, h: 1, label: '쑥밭', herbs: ['ssuk'], pickH: 28, asset: 'patch_ssuk' },
-  { id: 'pond', scene: 'garden', kind: 'pond', x: 2, y: 2, w: 3, h: 2, label: '연못', herbs: ['changpo', 'yeon'], block: false, pickH: 14 },
+  { id: 'pond', scene: 'garden', kind: 'pond', x: 2, y: 2, w: 3, h: 3, label: '연못', herbs: ['changpo', 'yeon'], block: false, pickH: 30 },
   { id: 'shelfA', scene: 'storage', kind: 'shelf', x: 1, y: 1, w: 1, h: 3, label: '약재 선반', herbs: ['gamcho', 'gyepi'], pickH: 110, asset: 'shelf_a' },
   { id: 'gukhwa', scene: 'garden', kind: 'patch', x: 8, y: 6, w: 2, h: 1, label: '국화밭', herbs: ['gukhwa'], pickH: 28, flower: '#f0a92e', asset: 'patch_gukhwa' },
   { id: 'pine', scene: 'garden', kind: 'pine', x: 6, y: 1, w: 1, h: 1, label: '소나무', herbs: ['solip'], pickH: 100 },
@@ -435,7 +435,7 @@ const DAY_COUNT = SPECIAL_START - 1 + SPECIAL_ORDER.length * 3; // 16일
 const DAYS = Array.from({ length: DAY_COUNT }, (_, k) => makeDay(k + 1));
 
 const GHOST_SPOTS = [ // [x, y, 장면]
-  [2.5, 8.2, 'main'], [3.5, 3.5, 'storage'], [16.5, 7.5, 'main'], [10.5, 4.6, 'main'], [3.5, 4.6, 'garden'], [9.5, 11.5, 'main'],
+  [2.5, 8.2, 'main'], [3.5, 3.5, 'storage'], [16.5, 7.5, 'main'], [10.5, 4.6, 'main'], [6.5, 5.8, 'garden'], [9.5, 11.5, 'main'],
 ];
 
 /* ---------- 업그레이드 (일과 종료 후 상점) ---------- */
@@ -496,6 +496,24 @@ const SPECIAL_ENDING = [
  */
 const ASSET_MANIFEST = {
   title_bg: { src: 'assets/title/title_bg.webp' },
+  // 바닥 타일: 64×32 마름모 투명 PNG (파일은 2배) — render.js 의 FLOOR_IMG 로 맵 기호와 연결
+  floor_wood: { src: 'assets/tiles/floor_wood.png' },   // 밝은 나무 마루 ('.' 복도·탕 앞, 'D' 입구)
+  floor_wood_dark: { src: 'assets/tiles/floor_wood_dark.png' },   // 어두운 나무 마루 ('w' 약재 창고)
+  floor_stone: { src: 'assets/tiles/floor_stone.png' },   // 회색 돌바닥 ('s' 탕 구역)
+  floor_tatami: { src: 'assets/tiles/floor_tatami.png' },   // 다다미 ('r' 접수 구역)
+  floor_boiler: { src: 'assets/tiles/floor_boiler.png' },   // 어두운 돌판 ('b' 보일러실)
+  floor_grass1: { src: 'assets/tiles/floor_grass1.png' },   // 풀밭 2종을 칸마다 섞음 ('g' 정원)
+  floor_grass2: { src: 'assets/tiles/floor_grass2.png' },
+  // 벽: 4칸짜리 무늬 띠 (칸당 64×148, 2배) — y축 벽면용 wall_r, x축 벽면용 좌우 반전 wall_l
+  // 구역 이동 문: 받은 그림을 좌우 반전(x축 벽)하고 기울여 2:1에 맞춤 · 키 = 'door_' + 가는 곳
+  door_garden: { src: 'assets/objects/door_garden.png', w: 45, h: 83, ax: 0.860, ay: 0.998 },    // 정원으로 (솔 무늬 노렌·석등)
+  door_storage: { src: 'assets/objects/door_storage.png', w: 40, h: 73, ax: 0.891, ay: 0.997 },  // 약재 창고로 (잎 간판·약재 주머니)
+  door_main: { src: 'assets/objects/door_main.png', w: 40, h: 74, ax: 0.893, ay: 0.997 },        // 목욕탕으로 (♨ 간판·수건)
+  cushion: { src: 'assets/objects/cushion.png', w: 59.5, h: 35, ax: 0.499, ay: 0.424 },   // 대기석 방석 (윗면 네 꼭짓점을 바닥 마름모에 맞춰 변형, 바닥 층에 그림)
+  gate: { src: 'assets/objects/gate.png', w: 42, h: 78, ax: 0.126, ay: 0.997 },   // 손님 입구 (♨ 노렌 문, 기준점 = 아래쪽 기둥 밑동) · 각도를 바닥 2:1에 맞춰 기울임
+  wall_lantern: { src: 'assets/objects/wall_lantern.png', w: 22, h: 46, ax: 0.870, ay: 0.149 },   // 벽 등롱 (기준점 = 벽판)
+  wall_r: { src: 'assets/tiles/wall_r.png' },
+  wall_l: { src: 'assets/tiles/wall_l.png' },
   // 오브젝트: 종류(kind) 키로 등록하면 코드 그림 대신 그려진다. w·h는 화면 표시 크기(파일은 2배 해상도),
   // ax·ay는 바닥 칸 가운데가 놓일 이미지 속 위치(비율)
   counter: { src: 'assets/objects/counter.png', w: 124, h: 103, ax: 0.504, ay: 0.712 },   // 접수대 3×1 (원본을 좌우 반전)
@@ -507,6 +525,7 @@ const ASSET_MANIFEST = {
   shelf_b: { src: 'assets/objects/shelf_b.png', w: 116, h: 123, ax: 0.487, ay: 0.762 },   // 뒤쪽 벽 선반 3×1 (앞면이 +y 쪽) · 세로는 누르지 않고 기울이기만 함
   jar: { src: 'assets/objects/jar.png', w: 104, h: 75, ax: 0.499, ay: 0.773 },        // 대추 항아리 무리 2×1 (원본 좌우 반전: 큰 항아리를 벽이 높은 왼쪽으로 · 벽에 걸치지 않게 조금 앞으로)
   basket: { src: 'assets/objects/basket.png', w: 80, h: 65, ax: 0.500, ay: 0.865 },   // 생강 바구니 무리 1×1 (칸 양옆으로 조금 넘침)
+  pond: { src: 'assets/objects/pond.png', w: 193, h: 104, ax: 0.499, ay: 0.539 },   // 정원 연못 3×3 (석등·대나무 물길 포함) · 있으면 코드 연못(pondDecor) 대신
   tree: { src: 'assets/objects/tree.png', w: 81, h: 84, ax: 0.510, ay: 0.940, shadow: 24, sway: 2.6 },   // 유자나무 1×1 · 기준점은 줄기 밑동 · sway: 바람에 꼭대기가 흔들리는 폭(px)
   pine: { src: 'assets/objects/pine.png', w: 91, h: 106, ax: 0.466, ay: 0.944, shadow: 24, sway: 2.2 },   // 소나무 1×1
   crate: { src: 'assets/objects/crate.png', w: 56, h: 42, ax: 0.499, ay: 0.671 },   // 유황 소금 상자 1×1 (원본 30° 시점을 세로로 눌러 바닥 2:1 각도에 맞춤)

@@ -380,6 +380,12 @@ function interactables() {
     else if (o.kind === 'furnace') list.push({ type: 'furnace', ref: o, rect: o, pickH: o.pickH || 16, label: o.label });
     else if (o.flavor) list.push({ type: 'deco', ref: o, rect: o, pickH: o.pickH || 16, label: o.label });
   }
+  // 구역 이동 문: 마우스를 올리면 이름표, 클릭하면 걸어가서 넘어감
+  const sc = SCENES[w.scene];
+  sc.rows.forEach((row, j) => [...row].forEach((ch, i) => {
+    const P = sc.portals[ch];
+    if (P) list.push({ type: 'portal', ref: P, rect: { x: i, y: j, w: 1, h: 1 }, pickH: 70, label: P.label });
+  }));
   return list;
 }
 function screenToWorldPx(cx, cy) {
@@ -461,6 +467,7 @@ function actionLabel(it) {
     case 'shadow': return '말 걸기';
     case 'furnace': return `장작 넣기 (보일러 ${Math.round(w.fuel)}%)`;
     case 'deco': return '살펴보기';
+    case 'portal': return Util.josa(it.ref.label, '으로', '로') + ' 가기';
   }
   return '';
 }
@@ -478,6 +485,7 @@ function interact(it) {
     case 'shadow': onShadowClick(it.ref); break;
     case 'furnace': refuelBoiler(); break;
     case 'deco': UI.toast(it.ref.flavor); break;
+    case 'portal': startTransition(it.ref); break;
   }
 }
 

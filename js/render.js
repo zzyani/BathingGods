@@ -80,8 +80,12 @@ const Render = (() => {
     '.': ['#8a5c3d', '#83573a'], D: ['#8a5c3d', '#83573a'], g: ['#4c7843', '#46703f'],
     s: ['#7c8991', '#75828a'], w: ['#6c4932', '#66442f'], b: ['#4a3b35', '#443630'], r: ['#b5a26b', '#ab9862'],
   };
+  // 바닥 기호 → 타일 그림 매니페스트 키 (없으면 단색 + 결 무늬)
+  // 배열이면 칸마다 무작위로 골라 섞는다 (풀밭 2종)
+  const FLOOR_IMG = { '.': 'floor_wood', D: 'floor_wood', w: 'floor_wood_dark', s: 'floor_stone', r: 'floor_tatami', b: 'floor_boiler', g: ['floor_grass1', 'floor_grass2'] };
   function floorTile(ctx, i, j, ch, t) {
     const pts = rectPts(i, j, 1, 1);
+    if (ch === '~' && Assets.imgs.pond?.img.naturalWidth) ch = 'g';   // 연못 그림이 있으면 물 칸 밑은 풀밭으로 (그림 가장자리 틈에 물색이 비치지 않게)
     if (ch === '~') {
       ctx.fillStyle = '#285f80'; poly(ctx, pts); ctx.fill();
       const ph = t * 1.3 + hash(i, j) * 6.28;
@@ -93,7 +97,20 @@ const Render = (() => {
       return;
     }
     const c = FLOOR[ch] || FLOOR['.'];
-    ctx.fillStyle = c[(i + j) & 1]; poly(ctx, pts); ctx.fill();
+    ctx.fillStyle = c[(i + j) & 1]; poly(ctx, pts); ctx.fill();   // 바탕색 (타일 그림 이음매가 비치지 않게 깔아 둠)
+    const fk = Array.isArray(FLOOR_IMG[ch]) ? FLOOR_IMG[ch][Math.floor(hash(i * 3 + 1, j * 5 + 2) * FLOOR_IMG[ch].length)] : FLOOR_IMG[ch];
+    const ti = fk && Assets.imgs[fk];
+    if (ti && ti.img.complete && ti.img.naturalWidth) {
+      // 바닥 타일 그림: 64×32 마름모. 칸마다 180° 돌려 같은 무늬가 줄지어 반복되지 않게 (판자 방향은 그대로)
+      const x0 = sx(i, j), y0 = sy(i, j);
+      ctx.save();
+      ctx.translate(x0, y0 + TH2);
+      if (hash(i * 7, j * 13) > 0.5) ctx.rotate(Math.PI);
+      ctx.drawImage(ti.img, -TW2 - 0.5, -TH2 - 0.25, TW2 * 2 + 1, TH2 * 2 + 0.5);
+      ctx.restore();
+      if (ch !== 'g') { ctx.strokeStyle = 'rgba(0,0,0,0.13)'; ctx.lineWidth = 1; poly(ctx, pts); ctx.stroke(); }   // 풀밭은 칸 경계선 없이 이어지게
+      return;
+    }
     ctx.strokeStyle = 'rgba(0,0,0,0.13)'; ctx.lineWidth = 1; ctx.stroke();
     if (ch === '.' || ch === 'w' || ch === 'D') {
       ctx.strokeStyle = 'rgba(40,20,10,0.2)';
@@ -155,6 +172,7 @@ const Render = (() => {
     }
     // 대기석 방석
     if (S === SCENES.main) for (const [x, y] of QUEUE_SPOTS) {
+      if (Assets.draw(ctx, 'cushion', sx(x, y), sy(x, y))) continue;   // 방석 그림 (술 달린 자주색 방석)
       ctx.fillStyle = 'rgba(122,46,42,0.75)';
       poly(ctx, rectPts(x - 0.3, y - 0.3, 0.6, 0.6)); ctx.fill();
       ctx.strokeStyle = 'rgba(240,200,120,0.4)'; ctx.stroke();
@@ -197,17 +215,36 @@ const Render = (() => {
       ctx.lineWidth = 1;
     }
   }
+  /* 벽 그림: 4칸짜리 무늬 띠(assets/tiles/wall_r.png · 좌우 반전 wall_l.png)를 칸마다 한 조각씩 벽면에 기울여 붙인다.
+   * 조각 번호를 벽을 따라 이어지는 칸 좌표로 정해서, 이웃한 벽 칸끼리 무늬가 자연스럽게 이어진다 */
+  const WALL_SLICES = 4;
+  function texFace(ctx, P1, P2, h, key, slice) {
+    const a = Assets.imgs[key];
+    if (!a || !a.img.complete || !a.img.naturalWidth || h < 30) return false;   // 낮은 앞쪽 벽(잘린 단면)은 코드 그대로
+    const sw = a.img.naturalWidth / WALL_SLICES, sh = a.img.naturalHeight;
+    ctx.save();
+    ctx.transform((P2[0] - P1[0]) / sw, (P2[1] - P1[1]) / sw, 0, h / sh, P1[0], P1[1] - h);
+    ctx.drawImage(a.img, slice * sw, 0, sw, sh, 0, 0, sw + 0.6, sh);   // +0.6: 칸 사이 이음매 틈 방지
+    ctx.restore();
+    return true;
+  }
   function wall(ctx, i, j, alpha) {
     const h = wallHeight(i, j);
     ctx.globalAlpha = alpha;
     const D = [sx(i, j + 1), sy(i, j + 1)], C = [sx(i + 1, j + 1), sy(i + 1, j + 1)], B = [sx(i + 1, j), sy(i + 1, j)];
-    if (!(isWall(i, j + 1) && wallHeight(i, j + 1) >= h)) face(ctx, D, C, h, '#5a3224', '#e2d3b5');
-    if (!(isWall(i + 1, j) && wallHeight(i + 1, j) >= h)) face(ctx, C, B, h, '#6b3c2b', '#eee0c5');
+    const mod = n => ((n % WALL_SLICES) + WALL_SLICES) % WALL_SLICES;
+    if (!(isWall(i, j + 1) && wallHeight(i, j + 1) >= h)) texFace(ctx, D, C, h, 'wall_l', mod(i)) || face(ctx, D, C, h, '#5a3224', '#e2d3b5');
+    if (!(isWall(i + 1, j) && wallHeight(i + 1, j) >= h)) texFace(ctx, C, B, h, 'wall_r', mod(-j)) || face(ctx, C, B, h, '#6b3c2b', '#eee0c5');
     ctx.fillStyle = '#2e211b'; poly(ctx, rectPts(i, j, 1, 1, h)); ctx.fill();
     ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.stroke();
     ctx.globalAlpha = 1;
   }
   function lantern(ctx, L, t) {
+    if (Assets.imgs.wall_lantern?.img.naturalWidth) {
+      // 벽 등롱 그림: 벽판이 벽면에 붙도록 기준점을 벽판에 둠. 그림은 벽판이 오른쪽(오른쪽 위 벽용)이라 왼쪽 위 벽(x=0)은 좌우 반전
+      Assets.draw(ctx, 'wall_lantern', sx(L.x, L.y), sy(L.x, L.y) - 60, L.wall[0] === 0);
+      return;
+    }
     const x = sx(L.x, L.y), y = sy(L.x, L.y) - 50;
     const sw = Math.sin(t * 1.5 + L.x) * 1;
     ctx.strokeStyle = '#2a1a12'; ctx.beginPath(); ctx.moveTo(x, y - 14); ctx.lineTo(x + sw, y - 8); ctx.stroke();
@@ -216,11 +253,33 @@ const Render = (() => {
     ctx.fillStyle = '#2a1a12'; ctx.fillRect(x + sw - 4, y - 10, 8, 2.5); ctx.fillRect(x + sw - 4, y + 8, 8, 2.5);
   }
   // 문(기둥 + 노렌). orient 'y': 벽이 y축을 따라 이어짐(정문), 'x': 벽이 x축을 따라 이어짐(구역 이동 문)
-  function door(ctx, t, dx = DOOR.x, dy = DOOR.y, orient = 'y', label = '湯', cloth = '#8e2a22') {
+  // 구역 이동 문 위 이름 팻말: 가는 곳마다 테두리·글자 색을 달리해 멀리서도 구분되게
+  const PLATE_COLOR = { garden: '#3f7a3a', storage: '#7a4f2a', main: '#9a2f26' };
+  function doorPlate(ctx, x, y, label, to) {
+    ctx.font = `bold 10px ${SERIF}`;
+    const w = Math.ceil(ctx.measureText(label).width) + 12, h = 15, col = PLATE_COLOR[to] || '#5a3a24';
+    ctx.strokeStyle = 'rgba(40,24,14,0.85)'; ctx.lineWidth = 1;   // 팻말을 건 끈
+    ctx.beginPath(); ctx.moveTo(x - w / 2 + 4, y - h / 2); ctx.lineTo(x, y - h / 2 - 5); ctx.lineTo(x + w / 2 - 4, y - h / 2); ctx.stroke();
+    rrect(ctx, x - w / 2 - 1.5, y - h / 2 - 1.5, w + 3, h + 3, 4, col);
+    rrect(ctx, x - w / 2, y - h / 2, w, h, 3, '#f4e7c9');
+    text(ctx, label, x, y + 0.5, 10, col, { bold: true, serif: true });
+  }
+  function door(ctx, t, dx = DOOR.x, dy = DOOR.y, orient = 'y', label = '湯', cloth = '#8e2a22', to = null) {
     const a = orient === 'y' ? [dx + 0.55, dy + 0.02] : [dx + 0.02, dy + 0.55];
     const b = orient === 'y' ? [dx + 0.55, dy + 0.98] : [dx + 0.98, dy + 0.55];
     const x1 = sx(a[0], a[1]), y1 = sy(a[0], a[1]);
     const x2 = sx(b[0], b[1]), y2 = sy(b[0], b[1]);
+    // 구역 이동 문 그림 (door_garden · door_storage · door_main): 좌우 반전해 x축 벽에 맞춘 그림, 기준점 = 아래쪽(오른쪽) 기둥 밑동
+    if (to && Assets.imgs['door_' + to]?.img.naturalWidth) {
+      Assets.draw(ctx, 'door_' + to, x2, y2);
+      doorPlate(ctx, (x1 + x2) / 2, (y1 + y2) / 2 - Assets.imgs['door_' + to].def.h - 1, label, to);
+      return;
+    }
+    if (dx === DOOR.x && dy === DOOR.y && Assets.imgs.gate?.img.naturalWidth) {
+      // 손님 입구 그림: 아래쪽(왼쪽) 기둥 밑동을 b 기둥 자리에 맞춤
+      Assets.draw(ctx, 'gate', x2, y2);
+      return;
+    }
     const H = 62;
     ctx.fillStyle = '#3a221a';
     ctx.fillRect(x1 - 2.5, y1 - H, 5, H);
@@ -431,7 +490,7 @@ const Render = (() => {
     ctx.strokeStyle = '#6a4a2a'; ctx.beginPath(); ctx.moveTo(lx - 6, ly); ctx.lineTo(lx + 6, ly); ctx.stroke();
   }
   function drawObject(ctx, o, t) {
-    if (o.kind !== 'tub' && o.kind !== 'pond') {
+    if (o.kind !== 'tub') {
       const ox = sx(o.x + o.w / 2, o.y + o.h / 2), oy = sy(o.x + o.w / 2, o.y + o.h / 2);
       const key = o.asset || o.kind;   // 같은 종류라도 asset 으로 다른 그림을 쓸 수 있다 (쑥밭·국화밭)
       const ad = Assets.imgs[key];
@@ -1125,7 +1184,11 @@ const Render = (() => {
         if (ch !== '#' && ch !== ' ') floorTile(ctx, i, j, ch, t);
       }
     }
-    if (sid === 'garden') pondDecor(ctx, t);
+    if (sid === 'garden') {
+      // 연못 그림은 바닥처럼 맨 아래 층에 그린다 (연못 옆을 지나는 주인공·손님이 가려지지 않게). 그림이 없으면 코드 연못
+      const pond = Assets.imgs.pond?.img.naturalWidth && w.objects.find(o => o.kind === 'pond');
+      if (pond) drawObject(ctx, pond, t); else pondDecor(ctx, t);
+    }
     floorDecor(ctx, w, t, hover);
 
     const list = [];
@@ -1134,7 +1197,7 @@ const Render = (() => {
         const ch = S.rows[j][i];
         if (S.portals[ch]) {
           const P = S.portals[ch];
-          list.push({ k: i + j + 1.02, f: () => door(ctx, t, i, j, P.orient, P.label, P.to === 'main' ? '#8e2a22' : '#3d5a7a') });
+          list.push({ k: i + j + 1.02, f: () => door(ctx, t, i, j, P.orient, P.label, P.to === 'main' ? '#8e2a22' : '#3d5a7a', P.to) });
           continue;
         }
         if (ch !== '#') continue;
@@ -1151,7 +1214,7 @@ const Render = (() => {
     for (const L of S.lanterns) list.push({ k: L.wall[0] + L.wall[1] + 1.02, f: () => lantern(ctx, L, t) });
     if (inMain) list.push({ k: DOOR.x + DOOR.y + 1.02, f: () => door(ctx, t) });
     for (const o of w.objects) {
-      if (o.kind === 'pond' || (o.scene || 'main') !== sid) continue;
+      if (o.kind === 'pond' || (o.scene || 'main') !== sid) continue;   // 연못은 바닥 층에서 그림
       list.push({ k: o.x + o.w - 0.5 + o.y + o.h - 0.5, f: () => drawObject(ctx, o, t) });
     }
     for (const c of w.clueItems) {
