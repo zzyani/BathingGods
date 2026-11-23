@@ -46,13 +46,17 @@ button { font-family: inherit; }
 /* ---------- HUD ---------- */
 #hud { position: absolute; inset: 0; pointer-events: none; }
 #hud > * { pointer-events: auto; }
+/* 왼쪽 위 세로줄: 상태창 → 목욕탕 소식 → (좁은 화면) 안내 띠 → (아주 좁은 화면) 주문 카드.
+   position 을 주지 않아서, 넓은 화면의 안내 띠·주문 카드는 #hud 기준으로 따로 놓인다 */
+#hud > #hud-left { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 26px 16px 0; pointer-events: none; }
+#hud-left > * { pointer-events: auto; }
 /* 상태창: assets/ui/hud_panel.png — 왼쪽 위 매화 가지는 틀 위로 삐져나와서 outset 으로 올려 그린다 */
 .hud-panel {
   border: 2px solid transparent;
   border-image: url("../assets/ui/hud_panel.png") 120 165 90 205 fill / 43px 59px 32px 74px / 14px 0 0 0;
   filter: drop-shadow(0 6px 12px rgba(0,0,0,.4));
 }
-#hud-status { position: absolute; top: 26px; left: 16px; padding: 14px 16px 12px 18px; width: 250px; }
+#hud-status { padding: 14px 16px 12px 18px; width: 250px; }
 .ic { display: inline-block; width: 1.15em; height: 1.15em; vertical-align: -0.2em; background: center / contain no-repeat; }
 .ic-fire { background-image: url("../assets/ui/ic_fire.png"); margin-right: 4px; }
 #hud-coins::before { content: ''; display: inline-block; width: 14px; height: 14px; margin-right: 4px; vertical-align: -2px; background: url("../assets/ui/ic_coin.png") center / contain no-repeat; }
@@ -64,13 +68,12 @@ button { font-family: inherit; }
 #hud-timefill { height: 100%; width: 0; background: linear-gradient(90deg, #f0b860, #d8452f); }
 #hud-clues { color: #c9a9ea; }
 #away {
-  position: absolute; top: 64px; left: 50%; transform: translateX(-50%); z-index: 2; pointer-events: none;
-  max-width: min(560px, calc(100% - 560px)); min-width: 260px;
+  width: 250px; pointer-events: none;   /* 상태창 바로 밑, 같은 너비 */
   padding: 7px 14px; border-radius: 12px; background: #1d1828; border: 2px solid #a8865c;
   font-size: 13px; color: #f3e6cc; box-shadow: 0 6px 18px rgba(0,0,0,.35);
 }
-#away b { color: var(--gold); margin-right: 8px; font-family: var(--serif); }
-#away .a-item { display: inline-block; margin: 2px 8px 2px 0; }
+#away b { display: block; color: var(--gold); margin-bottom: 2px; font-family: var(--serif); }
+#away .a-item { display: block; margin: 2px 0; }
 #away .a-item.urgent { color: #ffab98; font-weight: 700; }
 #away .a-item.urgent::before { content: ''; display: inline-block; width: 14px; height: 14px; margin-right: 4px; vertical-align: -2px; background: url("../assets/ui/ic_alert.png") center / contain no-repeat; }
 #away .a-calm { opacity: .7; }
@@ -425,9 +428,9 @@ kbd { display: inline-block; padding: 0 6px; border-radius: 4px; border: 1px sol
 .pause-panel { width: min(420px, 100%); text-align: center; }
 .pause-panel .menu .btn { width: 100%; }
 
-/* 가운데 자리가 좁으면 안내 띠를 왼쪽 위 상태판 바로 밑으로 */
+/* 가운데 자리가 좁으면 안내 띠를 왼쪽 위 상태판(과 목욕탕 소식) 밑으로 */
 @media (max-width: 1100px) {
-  #hint { top: 164px; left: 16px; transform: none; max-width: min(420px, calc(100% - 300px)); padding: 9px 40px; text-align: left; }
+  #hint { position: static; transform: none; max-width: min(420px, calc(100vw - 300px)); padding: 9px 40px; text-align: left; }
   #hint.pop { animation-name: msgPopL; }
 }
 @media (max-width: 900px) {
@@ -436,13 +439,12 @@ kbd { display: inline-block; padding: 0 6px; border-radius: 4px; border: 1px sol
   #hud-buttons button span { display: none; }
 }
 @media (max-width: 640px) {
-  #hud-status { width: auto; right: 16px; }
-  #orders { top: 162px; left: 16px; right: auto; width: 180px; }
+  #hud-status, #away, #hint { align-self: stretch; width: auto; }
+  #orders { position: static; width: 180px; max-height: 45vh; }
   #inventory { left: 16px; transform: none; padding: 6px 8px; }
   .inv-label { display: none; }
   #hud-buttons { bottom: 86px; }
-  #hint { top: 154px; left: 16px; right: 16px; max-width: none; width: auto; padding: 8px 34px; text-align: center; }
-  #orders { top: 222px; }
+  #hint { max-width: none; padding: 8px 34px; text-align: center; }
   .slot { width: 50px; }
   .title-menu .btn { width: min(300px, 82vw); font-size: 22px; padding: 0 56px; }
   .title-menu .btn.primary { width: min(350px, 88vw); font-size: 26px; }

@@ -1333,8 +1333,10 @@ const Render = (() => {
         if (ch !== '#') continue;
         let k = i + j + 1;
         // 오브젝트 바로 앞(아래·오른쪽)에 붙은 벽은 그 오브젝트보다 나중에 그린다 — 보일러 가마처럼 앞 벽에 붙은 것이 벽 위로 튀어나오지 않게
+        // 대각선으로 이웃한 칸은 낮은 앞 벽만: 뒷벽까지 걸리면 벽 앞의 나무가 세로로 잘려 보인다
+        const diag = wallHeight(i, j) <= 20 ? 1 : 0;
         for (const { o, k: ok } of objs) {
-          if ((j === o.y + o.h && i >= o.x - 1 && i < o.x + o.w) || (i === o.x + o.w && j >= o.y - 1 && j < o.y + o.h)) k = Math.max(k, ok + 0.01);
+          if ((j === o.y + o.h && i >= o.x - diag && i < o.x + o.w) || (i === o.x + o.w && j >= o.y - diag && j < o.y + o.h)) k = Math.max(k, ok + 0.01);
         }
         const alpha = wallFade(i, j, wallHeight(i, j), k);
         list.push({ k, f: () => wall(ctx, i, j, alpha) });

@@ -50,9 +50,10 @@ const SCENES = {
     },
     labels: [
       { text: '욕탕', x: 14.6, y: 5.0 },
-      { text: '복도', x: 8.0, y: 8.2 },
-      { text: '보일러실', x: 10.7, y: 10.6 },   // 가마 이미지에 가리지 않게 오른쪽 위로
-      { text: '접수대', x: 18.6, y: 14.6 },
+      // 앞쪽 벽(높이 46)·가마·방석과 앉은 손님에 가리지 않는 빈 바닥에 둔다
+      { text: '복도', x: 17.0, y: 7.5 },
+      { text: '보일러실', x: 9.75, y: 10.85 },
+      { text: '접수대', x: 20.2, y: 13.2 },
     ],
     // 벽 등롱 (벽면 아래 모서리 기준 좌표, wall: 붙어 있는 벽 타일)
     lanterns: [
@@ -164,18 +165,18 @@ const COMPANY_TIP = 10;
 /* ---------- 약재 ---------- */
 /* icon: 약재 아이콘 이미지(정사각 투명 PNG). 있으면 글자 배지 대신 그림으로 표시 */
 const HERBS = {
-  ssuk:    { name: '쑥',       short: '쑥', color: '#7da453', where: '정원(복도 왼쪽 끝 위쪽 문) 쑥밭', icon: 'assets/herbs/ssuk.png' },
-  yuja:    { name: '유자',     short: '유', color: '#e9b824', where: '정원(복도 왼쪽 끝 위쪽 문) 유자나무', icon: 'assets/herbs/yuja.png' },
-  changpo: { name: '창포',     short: '창', color: '#5b8fc0', where: '정원(복도 왼쪽 끝 위쪽 문) 연못', icon: 'assets/herbs/changpo.png' },
-  yeon:    { name: '연꽃',     short: '연', color: '#e88bb0', where: '정원(복도 왼쪽 끝 위쪽 문) 연못', icon: 'assets/herbs/yeon.png' },
-  gamcho:  { name: '감초',     short: '감', color: '#c4914f', where: '약재 창고(복도 왼쪽 끝 아래쪽 문) 선반', icon: 'assets/herbs/gamcho.png' },
-  gyepi:   { name: '계피',     short: '계', color: '#a5532e', where: '약재 창고(복도 왼쪽 끝 아래쪽 문) 선반', icon: 'assets/herbs/gyepi.png' },
-  bakha:   { name: '박하',     short: '박', color: '#4fbfa8', where: '약재 창고(복도 왼쪽 끝 아래쪽 문) 선반', icon: 'assets/herbs/bakha.png' },
+  ssuk:    { name: '쑥',       short: '쑥', color: '#7da453', where: '정원(복도 끝 오른쪽 문) 쑥밭', icon: 'assets/herbs/ssuk.png' },
+  yuja:    { name: '유자',     short: '유', color: '#e9b824', where: '정원(복도 끝 오른쪽 문) 유자나무', icon: 'assets/herbs/yuja.png' },
+  changpo: { name: '창포',     short: '창', color: '#5b8fc0', where: '정원(복도 끝 오른쪽 문) 연못', icon: 'assets/herbs/changpo.png' },
+  yeon:    { name: '연꽃',     short: '연', color: '#e88bb0', where: '정원(복도 끝 오른쪽 문) 연못', icon: 'assets/herbs/yeon.png' },
+  gamcho:  { name: '감초',     short: '감', color: '#c4914f', where: '약재 창고(복도 끝 왼쪽 문) 선반', icon: 'assets/herbs/gamcho.png' },
+  gyepi:   { name: '계피',     short: '계', color: '#a5532e', where: '약재 창고(복도 끝 왼쪽 문) 선반', icon: 'assets/herbs/gyepi.png' },
+  bakha:   { name: '박하',     short: '박', color: '#4fbfa8', where: '약재 창고(복도 끝 왼쪽 문) 선반', icon: 'assets/herbs/bakha.png' },
   yuhwang: { name: '유황 소금', short: '황', color: '#cfc23c', where: '보일러실 상자', icon: 'assets/herbs/yuhwang.png' },
-  gukhwa:  { name: '국화',     short: '국', color: '#f0a92e', where: '정원(복도 왼쪽 끝 위쪽 문) 국화밭', icon: 'assets/herbs/gukhwa.png' },
-  solip:   { name: '솔잎',     short: '솔', color: '#2f6b45', where: '정원(복도 왼쪽 끝 위쪽 문) 소나무', icon: 'assets/herbs/solip.png' },
-  daechu:  { name: '대추',     short: '대', color: '#9b2d2d', where: '약재 창고(복도 왼쪽 끝 아래쪽 문) 항아리', icon: 'assets/herbs/daechu.png' },
-  saenggang: { name: '생강',   short: '생', color: '#d98c3a', where: '약재 창고(복도 왼쪽 끝 아래쪽 문) 바구니', icon: 'assets/herbs/saenggang.png' },
+  gukhwa:  { name: '국화',     short: '국', color: '#f0a92e', where: '정원(복도 끝 오른쪽 문) 국화밭', icon: 'assets/herbs/gukhwa.png' },
+  solip:   { name: '솔잎',     short: '솔', color: '#2f6b45', where: '정원(복도 끝 오른쪽 문) 소나무', icon: 'assets/herbs/solip.png' },
+  daechu:  { name: '대추',     short: '대', color: '#9b2d2d', where: '약재 창고(복도 끝 왼쪽 문) 항아리', icon: 'assets/herbs/daechu.png' },
+  saenggang: { name: '생강',   short: '생', color: '#d98c3a', where: '약재 창고(복도 끝 왼쪽 문) 바구니', icon: 'assets/herbs/saenggang.png' },
 };
 
 /* ---------- 손님(신령) ----------

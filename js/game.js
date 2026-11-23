@@ -1226,7 +1226,7 @@ function hintText() {
       const hs = (spot && spot.scene) || 'main';
       if (hs !== w.scene) {
         return w.scene === 'main'
-          ? `${Util.josa(HERBS[h].name, '은', '는')} ${SCENES[hs].name}에 있어요. 복도 왼쪽 끝의 '${SCENES[hs].name}' 문으로 들어가세요.`
+          ? `${Util.josa(HERBS[h].name, '은', '는')} ${SCENES[hs].name}에 있어요. 복도를 따라 왼쪽 위로 가면 ${hs === 'garden' ? '오른쪽' : '왼쪽'}에 '${SCENES[hs].name}' 문이 있어요.`
           : `${Util.josa(HERBS[h].name, '은', '는')} 여기 없어요. 아래쪽 '목욕탕' 문으로 돌아가세요.`;
       }
       return `${Util.josa(HERBS[h].name, '은', '는')} ${spot.label}에서 챙길 수 있어요. 다가가서 클릭!`;
