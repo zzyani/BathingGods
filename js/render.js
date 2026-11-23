@@ -1599,11 +1599,13 @@ const Render = (() => {
       TS.key = '';
     });
   }
+  const tsHasArt = bg => !!bg && (!bg.img.complete || bg.img.naturalWidth > 0);
   function tsStatic(c) {
     const bg = Assets.imgs.title_bg;
-    if (bg && bg.img.complete && bg.img.naturalWidth) {
+    // 그림이 아직 안 왔거나 변환 중이면 어두운 밤색만 — 아래 코드 배경은 그림이 없거나 불러오지 못했을 때만
+    if (tsHasArt(bg)) {
       if (TS.styled) { c.drawImage(TS.styled, 0, 0, TW, THt); return; }
-      tsBuild(bg.img);
+      if (bg.img.complete) tsBuild(bg.img);
       c.fillStyle = '#0d1124'; c.fillRect(0, 0, TW, THt);
       return;
     }
@@ -1824,7 +1826,7 @@ const Render = (() => {
     ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(TS.cache, 0, 0); ctx.restore();
     ctx.save(); ctx.translate(ox, oy); ctx.scale(s, s);
     if (TS.styled) { tsStyledFx(ctx, t); ctx.restore(); return; }
-    if (bg && bg.img.complete && bg.img.naturalWidth) { ctx.restore(); return; }   // 판화풍 변환 중
+    if (tsHasArt(bg)) { ctx.restore(); return; }   // 그림을 불러오거나 판화풍으로 변환하는 중
     // 불빛
     ctx.globalCompositeOperation = 'lighter';
     const lights = [[330, 300, 230, 0.32], [185, 698, 150, 0.28]];
