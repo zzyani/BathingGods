@@ -52,7 +52,12 @@ const UI = (() => {
     E.screen.scrollTop = 0;
   }
   function hideScreen() { E.screen.className = 'hidden'; E.screen.innerHTML = ''; }
-  function showHUD(on) { E.hud.classList.toggle('hidden', !on); if (!on) hideTooltip(); ordersSig = invSig = hintSig = ''; }
+  function showHUD(on) {
+    E.hud.classList.toggle('hidden', !on);
+    if (!on) hideTooltip();
+    hintSig = '';
+    ordersSig = invSig = null;   // 손님이 0명이면 서명이 ''이라, ''로 두면 이전 날 손님 카드가 지워지지 않는다
+  }
 
   function title(save) {
     showScreen(`
